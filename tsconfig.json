@@ -1,0 +1,53 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "app/_layout.tsx",
+    "app/index.tsx",
+    "app/auth/**/*.tsx",
+    "app/(tabs)/**/*.tsx",
+    "app/new-order.tsx",
+    "app/nfc-programming.tsx",
+    "app/qa-video.tsx",
+    "app/activate-card.tsx",
+    "app/edit-bio.tsx",
+    "app/theme-picker.tsx",
+    "app/language-picker.tsx",
+    "app/public/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    "app/admin/**",
+    "app/(printer)/**",
+    "app/(sales)/**",
+    "app/notifications.tsx",
+    "app/nfc-encode.tsx",
+    "app/privacy-policy.tsx",
+    "app/qr-scanner.tsx",
+    "app/summary.tsx",
+    "app/terms-of-service.tsx",
+    "app/test-notification.tsx",
+    "components/**",
+    "constants/**",
+    "contexts/**",
+    "design-system/**",
+    "docs/**",
+    "hooks/**",
+    "lib/**",
+    "services/**",
+    "styles/**",
+    "supabase/**",
+    "types/**",
+    "utils/**"
+  ]
+}

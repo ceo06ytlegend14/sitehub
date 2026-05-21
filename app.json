@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Bio Cloud Native",
+    "slug": "bio-cloud-native",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "biocloud",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.biocloud.nativeapp",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs camera access to scan QR codes."
+      }
+    },
+    "android": {
+      "package": "com.biocloud.nativeapp",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-image-picker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "275ab003-c025-4ab1-b638-ae57befdea5d"
+      }
+    }
+  }
+}
