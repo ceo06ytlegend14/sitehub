@@ -13,6 +13,7 @@ export default function PrinterLayout() {
         <Tabs.Screen name="scan" options={{ title: 'Scan' }} />
         <Tabs.Screen name="wages" options={{ title: 'Wages' }} />
         <Tabs.Screen name="me" options={{ title: 'Me' }} />
+        <Tabs.Screen name="new-order" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="nfc/[jobId]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="qa/[jobId]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: 'none' } }} />

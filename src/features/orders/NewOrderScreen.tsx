@@ -7,38 +7,82 @@ import { AppIcon } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
 import { productTypeOptions, paymentMethodOptions } from '@/src/constants/options';
 import { useAuth } from '@/src/hooks/useAuth';
+import { auth } from '@/src/services/firebaseClient';
 import { createOrder } from '@/src/services/firestoreService';
 import { getAuthErrorMessage } from '@/src/services/authService';
+import { theme } from '@/src/constants/theme';
 
-const PINK = '#E91E8C';
-const PINK_BG = '#FFF0F8';
+const salesTheme = theme.roles.sales;
+const PINK = salesTheme.primary;
+const PINK_BG = salesTheme.background;
 
 type ProductValue = typeof productTypeOptions[number]['value'];
 type PaymentValue = typeof paymentMethodOptions[number]['value'];
 type Priority = 'low' | 'normal' | 'high' | 'urgent';
 type PaymentStatus = 'unpaid' | 'partial' | 'paid';
+type SubmitNotice = { tone: 'info' | 'success' | 'error'; title: string; message: string } | null;
 
 const PRIORITY_OPTIONS = [
   { label: 'Low',    value: 'low'    as Priority, color: '#6E8A95' },
-  { label: 'Normal', value: 'normal' as Priority, color: '#00A4A6' },
-  { label: 'High',   value: 'high'   as Priority, color: '#FFB343' },
-  { label: 'Urgent', value: 'urgent' as Priority, color: '#E74C3C' },
+  { label: 'Normal', value: 'normal' as Priority, color: theme.colors.primary },
+  { label: 'High',   value: 'high'   as Priority, color: '#FF9F0A' },
+  { label: 'Urgent', value: 'urgent' as Priority, color: '#FF3B30' },
 ];
 
 const PAYMENT_STATUS_OPTIONS = [
-  { label: 'Unpaid',  value: 'unpaid'  as PaymentStatus, color: '#E74C3C' },
-  { label: 'Partial', value: 'partial' as PaymentStatus, color: '#FFB343' },
-  { label: 'Paid',    value: 'paid'    as PaymentStatus, color: '#2BC48A' },
+  { label: 'Unpaid',  value: 'unpaid'  as PaymentStatus, color: '#FF3B30' },
+  { label: 'Partial', value: 'partial' as PaymentStatus, color: '#FF9F0A' },
+  { label: 'Paid',    value: 'paid'    as PaymentStatus, color: theme.status.success },
 ];
+
+function moneyValue(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function withTimeout<T>(work: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([work, timeoutPromise]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function getOrderCreationMessage(error: unknown) {
+  const code = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code) : '';
+  const message = getAuthErrorMessage(error);
+
+  if (code === 'permission-denied' || message.toLowerCase().includes('permission')) {
+    return 'Your account was blocked by Firestore rules. Deploy the updated firestore.rules (sales and printer can create orders), then try again.';
+  }
+  if (message.toLowerCase().includes('open order already exists')) {
+    return 'An open order already exists for this contact and product. Use a different phone number or product type, or close the existing order first.';
+  }
+  if (message.toLowerCase().includes('session expired')) {
+    return message;
+  }
+  if (message.toLowerCase().includes('taking too long')) {
+    return message;
+  }
+  return message;
+}
+
+const ORDER_CREATOR_ROLES = ['sales', 'printer', 'admin', 'super_admin'] as const;
 
 // Card gradients for each product type
 const CARD_GRADIENTS: Record<string, [string, string]> = {
-  wood_card:  ['#8B5E3C', '#5C3D1E'],
-  metal_card: ['#6B7280', '#374151'],
-  pvc_card:   ['#1E3A5F', '#0F1F3D'],
+  wood_card:  ['#6B5B4B', '#2F2923'],
+  metal_card: ['#8E8E93', '#3A3A3C'],
+  pvc_card:   ['#007AFF', '#1C1C1E'],
 };
 
-// ─── Bank Card Component ──────────────────────────────────────────────────────
 function BankCard({ product, selected, onPress }: {
   product: typeof productTypeOptions[number];
   selected: boolean;
@@ -74,25 +118,24 @@ function BankCard({ product, selected, onPress }: {
 }
 
 const card = StyleSheet.create({
-  wrap: { flex: 1, borderRadius: 16, overflow: 'visible', borderWidth: 2, borderColor: 'transparent' },
+  wrap: { flex: 1, borderRadius: 18, overflow: 'visible', borderWidth: 2, borderColor: 'transparent' },
   wrapSelected: { borderColor: PINK },
-  gradient: { borderRadius: 14, padding: 14, height: 120, justifyContent: 'space-between' },
-  chip: { width: 28, height: 20, backgroundColor: '#FFD700', borderRadius: 4, justifyContent: 'space-around', padding: 3 },
-  chipLine: { height: 2, backgroundColor: '#B8860B', borderRadius: 1 },
-  nfc: { position: 'absolute', top: 12, right: 12, color: 'rgba(255,255,255,0.5)', fontSize: 12, letterSpacing: -2 },
-  name: { color: '#fff', fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginTop: 4 },
+  gradient: { borderRadius: 16, padding: 14, height: 120, justifyContent: 'space-between' },
+  chip: { width: 28, height: 20, backgroundColor: 'rgba(255,255,255,0.72)', borderRadius: 5, justifyContent: 'space-around', padding: 3 },
+  chipLine: { height: 2, backgroundColor: 'rgba(0,0,0,0.22)', borderRadius: 1 },
+  nfc: { position: 'absolute', top: 12, right: 12, color: 'rgba(255,255,255,0.5)', fontSize: 12, letterSpacing: 0 },
+  name: { color: '#fff', fontSize: 11, fontWeight: '700', letterSpacing: 0, marginTop: 4 },
   price: { color: 'rgba(255,255,255,0.9)', fontSize: 18, fontWeight: '700' },
   dots: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)' },
-  dotsText: { color: 'rgba(255,255,255,0.6)', fontSize: 8, fontWeight: '700', marginLeft: 4, letterSpacing: 1 },
-  checkBadge: { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: PINK, alignItems: 'center', justifyContent: 'center' },
+  dotsText: { color: 'rgba(255,255,255,0.6)', fontSize: 8, fontWeight: '700', marginLeft: 4, letterSpacing: 0 },
+  checkBadge: { position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: PINK, alignItems: 'center', justifyContent: 'center', ...theme.shadows.control },
 });
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
   return (
     <View style={{ gap: 5 }}>
-      <AppText style={styles.fieldLabel}>{label}{required ? <AppText style={{ color: '#E74C3C' }}> *</AppText> : null}</AppText>
+      <AppText style={styles.fieldLabel}>{label}{required ? <AppText style={{ color: theme.colors.danger }}> *</AppText> : null}</AppText>
       {children}
       {hint ? <AppText style={styles.fieldHint}>{hint}</AppText> : null}
     </View>
@@ -117,7 +160,6 @@ function PillPicker<T extends string>({ options, value, onChange }: {
   );
 }
 
-// ─── Step indicator ───────────────────────────────────────────────────────────
 function StepIndicator({ step, total }: { step: number; total: number }) {
   const labels = ['Customer', 'Product', 'Payment'];
   return (
@@ -129,8 +171,8 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
         return (
           <View key={label} style={styles.stepItem}>
             <View style={[styles.stepCircle, done && styles.stepDone, active && styles.stepActive]}>
-              <AppText style={[styles.stepNum, (done || active) && { color: done ? '#2BC48A' : '#fff' }]}>
-                {done ? '✓' : String(n)}
+              <AppText style={[styles.stepNum, (done || active) && { color: done ? theme.status.success : '#fff' }]}>
+                {done ? 'OK' : String(n)}
               </AppText>
             </View>
             <AppText style={[styles.stepLabel, active && styles.stepLabelActive]}>{label}</AppText>
@@ -142,7 +184,6 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
   );
 }
 
-// ─── Success screen ───────────────────────────────────────────────────────────
 function SuccessScreen({ orderId, onNewOrder, onViewOrders }: {
   orderId: string;
   onNewOrder: () => void;
@@ -151,24 +192,52 @@ function SuccessScreen({ orderId, onNewOrder, onViewOrders }: {
   return (
     <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center', padding: 32 }]}>
       <View style={styles.successIcon}>
-        <AppIcon name="ShieldCheck" size={48} color="#2BC48A" />
+        <AppIcon name="ShieldCheck" size={48} color={theme.status.success} />
       </View>
       <AppText style={styles.successTitle}>Order Created!</AppText>
       <AppText style={styles.successSub}>#{orderId.slice(0, 8).toUpperCase()} has been pushed to the printer queue.</AppText>
       <View style={{ gap: 12, width: '100%', marginTop: 32 }}>
         <Pressable style={styles.submitBtn} onPress={onViewOrders}>
           <AppIcon name="ClipboardList" size={18} color="#fff" />
-          <AppText style={styles.submitBtnText}>View My Orders</AppText>
+          <AppText style={styles.submitBtnText}>View Queue</AppText>
         </Pressable>
         <Pressable style={styles.draftBtn} onPress={onNewOrder}>
-          <AppText style={styles.draftBtnText}>+ Create Another Order</AppText>
+          <AppText style={styles.draftBtnText}>Create Another Order</AppText>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
+function SubmitNoticeCard({ notice }: { notice: SubmitNotice }) {
+  if (!notice) return null;
+
+  const isError = notice.tone === 'error';
+  const isSuccess = notice.tone === 'success';
+
+  return (
+    <View style={[
+      styles.notice,
+      isError ? styles.noticeError : isSuccess ? styles.noticeSuccess : styles.noticeInfo,
+    ]}>
+      <AppIcon
+        name={isError ? 'TriangleAlert' : isSuccess ? 'CircleCheck' : 'Info'}
+        size={18}
+        color={isError ? theme.colors.danger : isSuccess ? theme.status.success : PINK}
+      />
+      <View style={styles.noticeCopy}>
+        <AppText style={[
+          styles.noticeTitle,
+          isError ? styles.noticeErrorText : isSuccess ? styles.noticeSuccessText : styles.noticeInfoText,
+        ]}>
+          {notice.title}
+        </AppText>
+        <AppText style={styles.noticeMessage}>{notice.message}</AppText>
+      </View>
+    </View>
+  );
+}
+
 export function NewOrderScreen() {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
@@ -197,6 +266,7 @@ export function NewOrderScreen() {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState<SubmitNotice>(null);
 
   const selectedProduct = productTypeOptions.find(p => p.value === product)!;
   const qty = Math.max(1, parseInt(quantity) || 1);
@@ -209,41 +279,107 @@ export function NewOrderScreen() {
     setPriority('normal'); setNfcWrite(true); setQrPrinted(false);
     setPaymentStatus('unpaid'); setPaymentMethod('online');
     setDeposit(''); setDueDate(''); setDeliveryAddress(''); setNotes('');
+    setSubmitNotice(null);
   }
 
   function validate() {
     if (step === 1) {
-      if (!customerName.trim()) { Alert.alert('Required', 'Customer name is required.'); return false; }
-      if (!phone.trim() && !telegram.trim()) { Alert.alert('Required', 'Phone or Telegram is required.'); return false; }
+      if (!customerName.trim()) {
+        const message = 'Customer name is required before continuing.';
+        setSubmitNotice({ tone: 'error', title: 'Missing customer name', message });
+        Alert.alert('Required', message);
+        return false;
+      }
+      if (!phone.trim() && !telegram.trim()) {
+        const message = 'Add at least one contact method: phone or Telegram.';
+        setSubmitNotice({ tone: 'error', title: 'Missing contact', message });
+        Alert.alert('Required', message);
+        return false;
+      }
     }
+
+    if (step === 3) {
+      const depositAmount = moneyValue(deposit);
+      if (depositAmount === null || (depositAmount !== undefined && depositAmount < 0)) {
+        const message = 'Deposit amount must be a valid number.';
+        setSubmitNotice({ tone: 'error', title: 'Invalid deposit', message });
+        Alert.alert('Invalid deposit', message);
+        return false;
+      }
+    }
+
+    setSubmitNotice(null);
     return true;
   }
 
   async function handleSubmit() {
-    if (!user || user.isGuest) { Alert.alert('Sign in required', 'Please sign in as sales staff.'); return; }
+    if (saving) return;
+    if (!user || user.isGuest) {
+      const message = 'Please sign in with a sales, printer, or admin staff account before creating an order.';
+      setSubmitNotice({ tone: 'error', title: 'Sign in required', message });
+      Alert.alert('Sign in required', message);
+      return;
+    }
+    if (!ORDER_CREATOR_ROLES.includes(user.role as typeof ORDER_CREATOR_ROLES[number])) {
+      const message = 'This account role cannot create orders. Use a sales, printer, or admin account.';
+      setSubmitNotice({ tone: 'error', title: 'Order creation blocked', message });
+      Alert.alert('Order creation blocked', message);
+      return;
+    }
+    const staffId = auth.currentUser?.uid ?? user.id;
+    if (!staffId || staffId === 'guest') {
+      const message = 'Your Firebase session is missing. Sign out, sign in with a demo staff account, and try again.';
+      setSubmitNotice({ tone: 'error', title: 'Session expired', message });
+      Alert.alert('Session expired', message);
+      return;
+    }
+    if (!validate()) return;
+
+    const depositAmount = moneyValue(deposit);
     setSaving(true);
+    setSubmitNotice({
+      tone: 'info',
+      title: 'Creating order',
+      message: 'Saving customer details and adding the job to the printer queue...',
+    });
+
     try {
-      const orderId = await createOrder({
-        customerName: customerName.trim(),
-        phone: phone.trim(),
-        telegram: telegram.trim() || undefined,
-        email: email.trim() || undefined,
-        company: company.trim() || undefined,
-        jobTitle: jobTitle.trim() || undefined,
-        deliveryAddress: deliveryAddress.trim() || undefined,
-        productType: product,
-        quantity: qty,
-        cardDesign: 'classic_black',
-        paymentStatus,
-        paymentMethod,
-        priority: priority === 'urgent' ? 'urgent' : 'standard',
-        notes: notes.trim() || undefined,
-        assignedSalesman: user.id,
-        createdBy: user.id,
+      const orderId = await withTimeout(
+        createOrder({
+          customerName: customerName.trim(),
+          phone: phone.trim(),
+          telegram: telegram.trim() || undefined,
+          email: email.trim() || undefined,
+          company: company.trim() || undefined,
+          jobTitle: jobTitle.trim() || undefined,
+          deliveryAddress: deliveryAddress.trim() || undefined,
+          productType: product,
+          quantity: qty,
+          cardDesign: 'classic_black',
+          nfcEnabled: nfcWrite,
+          qrPrinted,
+          depositAmount: depositAmount ?? undefined,
+          dueDate: dueDate.trim() || undefined,
+          paymentStatus,
+          paymentMethod,
+          priority: priority === 'urgent' ? 'urgent' : 'standard',
+          notes: notes.trim() || undefined,
+          assignedSalesman: staffId,
+          createdBy: staffId,
+        }),
+        20000,
+        'Order creation is taking too long. Check your internet connection and Firebase rules, then try again.'
+      );
+      setSubmitNotice({
+        tone: 'success',
+        title: 'Order created',
+        message: 'The order was saved and added to the printer queue.',
       });
       setCreatedOrderId(orderId);
     } catch (err) {
-      Alert.alert('Failed', getAuthErrorMessage(err));
+      const message = getOrderCreationMessage(err);
+      setSubmitNotice({ tone: 'error', title: 'Order not created', message });
+      Alert.alert('Order not created', message);
     } finally {
       setSaving(false);
     }
@@ -255,7 +391,7 @@ export function NewOrderScreen() {
       <SuccessScreen
         orderId={createdOrderId}
         onNewOrder={resetForm}
-        onViewOrders={() => router.replace('/sales/orders')}
+        onViewOrders={() => router.replace(user?.role === 'printer' ? '/printer/queue' : user?.role === 'admin' || user?.role === 'super_admin' ? '/admin/orders' : '/sales/orders')}
       />
     );
   }
@@ -265,7 +401,7 @@ export function NewOrderScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => step > 1 ? setStep(s => s - 1) : router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppText style={styles.backBtnText}>‹</AppText>
+          <AppIcon name="ChevronLeft" size={22} color={PINK} />
         </Pressable>
         <AppText style={styles.headerTitle}>New Order</AppText>
         <AppText style={styles.stepCounter}>{step}/3</AppText>
@@ -282,32 +418,32 @@ export function NewOrderScreen() {
               <AppText style={styles.sectionTitle}>Customer Information</AppText>
             </View>
             <Field label="Customer Name" required>
-              <TextInput style={styles.input} value={customerName} onChangeText={setCustomerName} placeholder="Full name of client" placeholderTextColor="#ccc" autoCapitalize="words" />
+              <TextInput style={styles.input} value={customerName} onChangeText={setCustomerName} placeholder="Full name of client" placeholderTextColor={theme.colors.textMuted} autoCapitalize="words" />
             </Field>
             <View style={styles.row}>
               <View style={styles.half}>
                 <Field label="Phone" required>
-                  <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="012 345 678" placeholderTextColor="#ccc" keyboardType="phone-pad" />
+                  <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="012 345 678" placeholderTextColor={theme.colors.textMuted} keyboardType="phone-pad" />
                 </Field>
               </View>
               <View style={styles.half}>
                 <Field label="Telegram">
-                  <TextInput style={styles.input} value={telegram} onChangeText={setTelegram} placeholder="@username" placeholderTextColor="#ccc" autoCapitalize="none" />
+                  <TextInput style={styles.input} value={telegram} onChangeText={setTelegram} placeholder="@username" placeholderTextColor={theme.colors.textMuted} autoCapitalize="none" />
                 </Field>
               </View>
             </View>
             <Field label="Email">
-              <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="client@example.com" placeholderTextColor="#ccc" keyboardType="email-address" autoCapitalize="none" />
+              <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="client@example.com" placeholderTextColor={theme.colors.textMuted} keyboardType="email-address" autoCapitalize="none" />
             </Field>
             <View style={styles.row}>
               <View style={styles.half}>
                 <Field label="Company">
-                  <TextInput style={styles.input} value={company} onChangeText={setCompany} placeholder="Acme Corp" placeholderTextColor="#ccc" />
+                  <TextInput style={styles.input} value={company} onChangeText={setCompany} placeholder="Acme Corp" placeholderTextColor={theme.colors.textMuted} />
                 </Field>
               </View>
               <View style={styles.half}>
                 <Field label="Job Title">
-                  <TextInput style={styles.input} value={jobTitle} onChangeText={setJobTitle} placeholder="Manager" placeholderTextColor="#ccc" />
+                  <TextInput style={styles.input} value={jobTitle} onChangeText={setJobTitle} placeholder="Manager" placeholderTextColor={theme.colors.textMuted} />
                 </Field>
               </View>
             </View>
@@ -332,7 +468,7 @@ export function NewOrderScreen() {
                 <Field label="Quantity" required>
                   <View style={styles.qtyRow}>
                     <Pressable style={styles.qtyBtn} onPress={() => setQuantity(q => String(Math.max(1, (parseInt(q)||1)-1)))}>
-                      <AppText style={styles.qtyBtnText}>−</AppText>
+                      <AppText style={styles.qtyBtnText}>-</AppText>
                     </Pressable>
                     <TextInput style={styles.qtyInput} value={quantity} onChangeText={setQuantity} keyboardType="number-pad" textAlign="center" />
                     <Pressable style={styles.qtyBtn} onPress={() => setQuantity(q => String((parseInt(q)||1)+1))}>
@@ -382,20 +518,20 @@ export function NewOrderScreen() {
             <View style={styles.row}>
               <View style={styles.half}>
                 <Field label="Deposit ($)">
-                  <TextInput style={styles.input} value={deposit} onChangeText={setDeposit} placeholder="0.00" placeholderTextColor="#ccc" keyboardType="decimal-pad" />
+                  <TextInput style={styles.input} value={deposit} onChangeText={setDeposit} placeholder="0.00" placeholderTextColor={theme.colors.textMuted} keyboardType="decimal-pad" />
                 </Field>
               </View>
               <View style={styles.half}>
                 <Field label="Due Date">
-                  <TextInput style={styles.input} value={dueDate} onChangeText={setDueDate} placeholder="YYYY-MM-DD" placeholderTextColor="#ccc" />
+                  <TextInput style={styles.input} value={dueDate} onChangeText={setDueDate} placeholder="YYYY-MM-DD" placeholderTextColor={theme.colors.textMuted} />
                 </Field>
               </View>
             </View>
             <Field label="Delivery Address">
-              <TextInput style={styles.inputMulti} value={deliveryAddress} onChangeText={setDeliveryAddress} placeholder="Street, Building, Floor..." placeholderTextColor="#ccc" multiline numberOfLines={2} />
+              <TextInput style={styles.inputMulti} value={deliveryAddress} onChangeText={setDeliveryAddress} placeholder="Street, Building, Floor..." placeholderTextColor={theme.colors.textMuted} multiline numberOfLines={2} />
             </Field>
             <Field label="Notes">
-              <TextInput style={styles.inputMulti} value={notes} onChangeText={setNotes} placeholder="Special instructions..." placeholderTextColor="#ccc" multiline numberOfLines={3} />
+              <TextInput style={styles.inputMulti} value={notes} onChangeText={setNotes} placeholder="Special instructions..." placeholderTextColor={theme.colors.textMuted} multiline numberOfLines={3} />
             </Field>
             {/* Summary */}
             <View style={styles.summaryCard}>
@@ -403,7 +539,7 @@ export function NewOrderScreen() {
               {[
                 ['Customer', customerName],
                 ['Contact', phone || telegram],
-                ['Product', `${selectedProduct.label} × ${qty}`],
+                ['Product', `${selectedProduct.label} x ${qty}`],
                 ['Priority', priority],
                 ['Payment', paymentStatus],
                 ['Total', `$${total}`],
@@ -419,9 +555,11 @@ export function NewOrderScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        <SubmitNoticeCard notice={submitNotice} />
         {step < 3 ? (
           <Pressable style={styles.submitBtn} onPress={() => { if (validate()) setStep(s => s + 1); }}>
-            <AppText style={styles.submitBtnText}>Continue →</AppText>
+            <AppText style={styles.submitBtnText}>Continue</AppText>
+            <AppIcon name="ChevronRight" size={18} color="#fff" />
           </Pressable>
         ) : (
           <View style={styles.footerRow}>
@@ -430,7 +568,7 @@ export function NewOrderScreen() {
             </Pressable>
             <Pressable style={[styles.submitBtn, { flex: 2 }, saving && { opacity: 0.6 }]} disabled={saving} onPress={handleSubmit}>
               <AppIcon name="ShieldCheck" size={18} color="#fff" />
-              <AppText style={styles.submitBtnText}>{saving ? 'Submitting…' : 'Submit Order'}</AppText>
+              <AppText style={styles.submitBtnText}>{saving ? 'Submitting...' : 'Submit Order'}</AppText>
             </Pressable>
           </View>
         )}
@@ -441,58 +579,68 @@ export function NewOrderScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: PINK_BG },
-  header: { backgroundColor: PINK, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
-  backBtn: { width: 40, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  backBtnText: { color: '#fff', fontSize: 24, fontWeight: '700', lineHeight: 28 },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  stepCounter: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' },
+  header: { backgroundColor: PINK_BG, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.colors.surfaceGlass, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, ...theme.shadows.control },
+  backBtnText: { color: PINK, fontSize: 25, fontWeight: '700', lineHeight: 29 },
+  headerTitle: { color: theme.colors.textPrimary, fontSize: 20, fontWeight: '700' },
+  stepCounter: { color: theme.colors.textMuted, fontSize: 14, fontWeight: '600' },
   // Step indicator
-  stepWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0C0DC' },
+  stepWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 20, backgroundColor: theme.colors.surfaceGlass, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
   stepItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  stepCircle: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: '#F0C0DC', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  stepCircle: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surface },
   stepActive: { borderColor: PINK, backgroundColor: PINK },
-  stepDone: { borderColor: '#2BC48A', backgroundColor: '#EDFAF4' },
-  stepNum: { fontSize: 11, fontWeight: '700', color: '#ccc' },
-  stepLabel: { fontSize: 11, color: '#aaa', fontWeight: '500' },
+  stepDone: { borderColor: theme.status.success, backgroundColor: 'rgba(48,209,88,0.12)' },
+  stepNum: { fontSize: 10, fontWeight: '700', color: theme.colors.textMuted },
+  stepLabel: { fontSize: 11, color: theme.colors.textMuted, fontWeight: '500' },
   stepLabelActive: { color: PINK, fontWeight: '700' },
-  stepLine: { width: 24, height: 2, backgroundColor: '#F0C0DC', marginHorizontal: 4 },
-  stepLineDone: { backgroundColor: '#2BC48A' },
+  stepLine: { width: 24, height: 2, backgroundColor: theme.colors.border, marginHorizontal: 4 },
+  stepLineDone: { backgroundColor: theme.status.success },
   // Content
-  scroll: { padding: 16, paddingBottom: 120, gap: 16 },
-  section: { backgroundColor: '#fff', borderRadius: 18, padding: 16, gap: 14, shadowColor: PINK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#F5E0EE' },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1A0A12' },
-  fieldLabel: { fontSize: 11, fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 },
+  scroll: { padding: 20, paddingBottom: 132, gap: 16 },
+  section: { backgroundColor: theme.colors.surface, borderRadius: 24, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, padding: 20, gap: 16, ...theme.shadows.card },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.textPrimary },
+  fieldLabel: { fontSize: 11, fontWeight: '600', color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 0 },
   fieldHint: { fontSize: 11, color: PINK },
-  input: { backgroundColor: '#FFF8FC', borderRadius: 12, borderWidth: 1, borderColor: '#F0C0DC', paddingHorizontal: 14, height: 48, fontSize: 15, color: '#1A0A12' },
-  inputMulti: { backgroundColor: '#FFF8FC', borderRadius: 12, borderWidth: 1, borderColor: '#F0C0DC', paddingHorizontal: 14, paddingTop: 12, minHeight: 80, fontSize: 15, color: '#1A0A12', textAlignVertical: 'top' },
+  input: { backgroundColor: theme.colors.surface, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.border, paddingHorizontal: 16, height: 52, fontSize: 15, color: theme.colors.textPrimary },
+  inputMulti: { backgroundColor: theme.colors.surface, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.border, paddingHorizontal: 16, paddingTop: 13, minHeight: 88, fontSize: 15, color: theme.colors.textPrimary, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: 10 },
   half: { flex: 1 },
-  pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: '#F0C0DC', backgroundColor: '#fff' },
-  pillText: { fontSize: 13, fontWeight: '600', color: '#555' },
+  pill: { paddingHorizontal: 15, paddingVertical: 9, borderRadius: 20, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  pillText: { fontSize: 13, fontWeight: '600', color: theme.colors.textMuted },
   cardGrid: { flexDirection: 'row', gap: 10 },
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  qtyBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: PINK, alignItems: 'center', justifyContent: 'center' },
+  qtyBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: PINK, alignItems: 'center', justifyContent: 'center', ...theme.shadows.control },
   qtyBtnText: { color: '#fff', fontSize: 20, fontWeight: '700', lineHeight: 24 },
-  qtyInput: { flex: 1, backgroundColor: '#FFF8FC', borderRadius: 12, borderWidth: 1, borderColor: '#F0C0DC', height: 48, fontSize: 18, fontWeight: '700', color: '#1A0A12' },
-  totalBox: { backgroundColor: '#FFF0F8', borderRadius: 12, borderWidth: 1, borderColor: '#F0C0DC', height: 48, alignItems: 'center', justifyContent: 'center' },
+  qtyInput: { flex: 1, backgroundColor: theme.colors.surface, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.border, height: 52, fontSize: 18, fontWeight: '700', color: theme.colors.textPrimary },
+  totalBox: { backgroundColor: theme.colors.surfaceSoft, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.border, height: 52, alignItems: 'center', justifyContent: 'center' },
   totalAmount: { fontSize: 20, fontWeight: '700', color: PINK },
   toggleRow: { flexDirection: 'row', gap: 10 },
-  toggleItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFF8FC', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#F0C0DC' },
-  toggleLabel: { flex: 1, fontSize: 13, fontWeight: '600', color: '#555' },
-  summaryCard: { backgroundColor: '#FFF0F8', borderRadius: 14, padding: 14, gap: 8, borderWidth: 1, borderColor: '#F0C0DC' },
-  summaryTitle: { fontSize: 13, fontWeight: '700', color: '#1A0A12', marginBottom: 4 },
+  toggleItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: theme.colors.surfaceSoft, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: theme.colors.border },
+  toggleLabel: { flex: 1, fontSize: 13, fontWeight: '600', color: theme.colors.textMuted },
+  summaryCard: { backgroundColor: theme.colors.surfaceSoft, borderRadius: 18, padding: 16, gap: 8, borderWidth: 1, borderColor: theme.colors.border },
+  summaryTitle: { fontSize: 14, fontWeight: '700', color: theme.colors.textPrimary, marginBottom: 4 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  summaryKey: { fontSize: 12, color: '#888', textTransform: 'capitalize' },
-  summaryVal: { fontSize: 12, fontWeight: '600', color: '#1A0A12' },
-  footer: { padding: 16, paddingBottom: 32, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0C0DC' },
+  summaryKey: { fontSize: 12, color: theme.colors.textMuted, textTransform: 'capitalize' },
+  summaryVal: { fontSize: 12, fontWeight: '600', color: theme.colors.textPrimary },
+  footer: { padding: 16, paddingBottom: 32, backgroundColor: theme.colors.surfaceGlass, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
   footerRow: { flexDirection: 'row', gap: 10 },
-  submitBtn: { backgroundColor: PINK, borderRadius: 16, height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  submitBtn: { backgroundColor: PINK, borderRadius: 18, height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, ...theme.shadows.control },
   submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  draftBtn: { flex: 1, borderRadius: 16, height: 54, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: PINK, backgroundColor: '#fff' },
+  draftBtn: { flex: 1, borderRadius: 18, height: 56, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
   draftBtnText: { color: PINK, fontSize: 15, fontWeight: '700' },
+  notice: { borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 10, padding: 12, marginBottom: 12 },
+  noticeInfo: { backgroundColor: theme.colors.primarySoft, borderColor: 'rgba(0,122,255,0.18)' },
+  noticeSuccess: { backgroundColor: 'rgba(48,209,88,0.12)', borderColor: 'rgba(48,209,88,0.24)' },
+  noticeError: { backgroundColor: 'rgba(255,59,48,0.10)', borderColor: 'rgba(255,59,48,0.22)' },
+  noticeCopy: { flex: 1, gap: 2 },
+  noticeTitle: { fontSize: 13, fontWeight: '800' },
+  noticeMessage: { fontSize: 12, lineHeight: 17, color: theme.colors.textMuted },
+  noticeInfoText: { color: PINK },
+  noticeSuccessText: { color: theme.status.success },
+  noticeErrorText: { color: theme.colors.danger },
   // Success
-  successIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#EDFAF4', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  successTitle: { fontSize: 26, fontWeight: '700', color: '#1A0A12', marginBottom: 8 },
-  successSub: { fontSize: 14, color: '#888', textAlign: 'center', lineHeight: 22 },
+  successIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(48,209,88,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 16, ...theme.shadows.card },
+  successTitle: { fontSize: 26, fontWeight: '700', color: theme.colors.textPrimary, marginBottom: 8 },
+  successSub: { fontSize: 14, color: theme.colors.textMuted, textAlign: 'center', lineHeight: 22 },
 });

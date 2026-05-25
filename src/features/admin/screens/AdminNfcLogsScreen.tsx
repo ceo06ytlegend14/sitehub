@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/src/services/firebaseClient';
 import { AppIcon } from '@/src/components/AppIcon';
+import { AppSearchBar } from '@/src/components/AppSearchBar';
 import { AppText } from '@/src/components/AppText';
+import { searchEmptyMessage, useSearchQuery } from '@/src/hooks/useSearchQuery';
 import { theme } from '@/src/constants/theme';
 
 const adminTheme = theme.roles.admin;
@@ -48,7 +50,8 @@ const badge = StyleSheet.create({
 export default function NfcLogsScreen() {
   const [cards, setCards] = useState<NfcCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const { input: searchInput, setInput: setSearchInput, query: searchQuery, submitSearch, clearSearch } =
+    useSearchQuery();
 
   useEffect(() => {
     async function load() {
@@ -65,14 +68,15 @@ export default function NfcLogsScreen() {
     load();
   }, []);
 
-  const filtered = cards.filter(c => {
-    const q = search.toLowerCase();
-    return (
+  const q = searchQuery.toLowerCase();
+  const filtered = cards.filter(
+    (c) =>
+      !q ||
       c.chipUID?.toLowerCase().includes(q) ||
       c.cardCode?.toLowerCase().includes(q) ||
-      c.writtenBy?.toLowerCase().includes(q)
-    );
-  });
+      c.writtenBy?.toLowerCase().includes(q) ||
+      c.orderId?.toLowerCase().includes(q)
+  );
 
   function formatDate(ts: any): string {
     if (!ts) return '—';
@@ -94,7 +98,7 @@ export default function NfcLogsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronRight" size={22} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+          <AppIcon name="ChevronLeft" size={22} color="#fff" />
         </Pressable>
         <AppText style={styles.headerTitle}>NFC Logs</AppText>
         <AppText style={styles.headerCount}>{cards.length} chips</AppText>
@@ -114,23 +118,22 @@ export default function NfcLogsScreen() {
         })}
       </View>
 
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <AppIcon name="Nfc" size={16} color="#888" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by card code or chip UID…"
-          placeholderTextColor="#aaa"
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
+      <AppSearchBar
+        value={searchInput}
+        onChangeText={setSearchInput}
+        onSearch={submitSearch}
+        onClear={clearSearch}
+        loading={loading}
+        placeholder="Search by card code or chip UID…"
+      />
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {loading ? (
           <AppText style={styles.empty}>Loading NFC logs…</AppText>
         ) : filtered.length === 0 ? (
-          <AppText style={styles.empty}>No NFC records found.</AppText>
+          <AppText style={styles.empty}>
+            {searchEmptyMessage(false, Boolean(searchQuery), searchQuery, 'No NFC records found.', '')}
+          </AppText>
         ) : (
           filtered.map(card => (
             <View key={card.id} style={styles.card}>
@@ -171,8 +174,6 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 10, alignItems: 'center', gap: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
   statNum: { fontSize: 20, fontWeight: '700' },
   statLabel: { fontSize: 10, color: '#888', textTransform: 'capitalize' },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', marginHorizontal: 12, marginBottom: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
-  searchInput: { flex: 1, fontSize: 14, color: '#333' },
   list: { padding: 12, paddingBottom: 40, gap: 10 },
   empty: { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 15 },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },

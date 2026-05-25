@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0,
     fontSize: 10,
   },
   totalAmount: {

@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import {
   MavenPro_400Regular,
@@ -9,6 +8,7 @@ import {
   MavenPro_700Bold,
 } from '@expo-google-fonts/maven-pro';
 import * as SplashScreen from 'expo-splash-screen';
+import { ThemeStatusBar } from '@/src/components/ThemeStatusBar';
 import { AuthProvider } from '@/src/providers/AuthProvider';
 import { PreferencesProvider } from '@/src/providers/PreferencesProvider';
 
@@ -45,12 +45,12 @@ export default function RootLayout() {
           <Stack.Screen name="order-detail/[orderId]" />
           <Stack.Screen name="activate-card" options={{ headerShown: true, title: 'Activate Card' }} />
           <Stack.Screen name="edit-bio" options={{ headerShown: true, title: 'Edit Bio Page' }} />
-          <Stack.Screen name="theme-picker" options={{ headerShown: true, title: 'Pick Theme' }} />
-          <Stack.Screen name="language-picker" options={{ headerShown: true, title: 'Language Picker' }} />
+          <Stack.Screen name="theme-picker" options={{ headerShown: false }} />
+          <Stack.Screen name="language-picker" options={{ headerShown: false }} />
           <Stack.Screen name="public/[slug]" options={{ headerShown: true, title: 'Public Bio Page' }} />
           <Stack.Screen name="+not-found" />
         </Stack>
-        <StatusBar style="dark" />
+        <ThemeStatusBar />
       </PreferencesProvider>
     </AuthProvider>
   );

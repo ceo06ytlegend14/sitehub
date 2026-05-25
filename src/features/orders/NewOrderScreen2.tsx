@@ -22,8 +22,11 @@ import { getAuthErrorMessage } from '@/src/services/authService';
 import { uploadOrderArtwork } from '@/src/services/orderArtworkService';
 import { CardDesign } from '@/src/types/models';
 
-const PINK = '#E91E8C';
-const PINK_DARK = '#B5166D';
+import { theme } from '@/src/constants/theme';
+
+const salesTheme = theme.roles.sales;
+const PINK = salesTheme.primary;
+const PINK_DARK = salesTheme.primaryDark;
 const INK = '#1A0A12';
 
 type ProductValue = typeof productTypeOptions[number]['value'];
@@ -59,7 +62,7 @@ const PRODUCT_CARD_THEMES: Record<ProductValue, ProductCardTheme> = {
     muted: 'rgba(248,250,252,0.72)',
   },
   pvc_card: {
-    colors: ['#0F766E', '#E91E8C'],
+    colors: ['#0F766E', salesTheme.primary],
     accent: '#B8FFF2',
     text: '#FFFFFF',
     muted: 'rgba(255,255,255,0.76)',
@@ -963,7 +966,7 @@ export function NewOrderScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFF0F8' },
+  safe: { flex: 1, backgroundColor: salesTheme.background },
   header: {
     backgroundColor: PINK,
     flexDirection: 'row',
@@ -1190,7 +1193,7 @@ const styles = StyleSheet.create({
     color: INK,
   },
   totalBox: {
-    backgroundColor: '#FFF0F8',
+    backgroundColor: salesTheme.background,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#F0C0DC',
@@ -1235,7 +1238,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFF0F8',
+    backgroundColor: salesTheme.background,
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
@@ -1255,7 +1258,7 @@ const styles = StyleSheet.create({
   prefix: { fontSize: 16, fontWeight: '700', color: '#555' },
   inlineInput: { flex: 1, borderWidth: 0, backgroundColor: 'transparent' },
   summaryCard: {
-    backgroundColor: '#FFF0F8',
+    backgroundColor: salesTheme.background,
     borderRadius: 14,
     padding: 14,
     gap: 8,
@@ -1270,7 +1273,7 @@ const styles = StyleSheet.create({
   footer: {
     padding: 16,
     paddingBottom: 28,
-    backgroundColor: '#FFF0F8',
+    backgroundColor: salesTheme.background,
     borderTopWidth: 1,
     borderTopColor: '#F0C0DC',
   },

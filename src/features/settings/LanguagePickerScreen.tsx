@@ -1,54 +1,69 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { AppCard } from '@/src/components/AppCard';
+import { AppHeader } from '@/src/components/AppHeader';
+import { AppSelect } from '@/src/components/AppSelect';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { AppText } from '@/src/components/AppText';
 import { languageOptions } from '@/src/constants/options';
 import { theme } from '@/src/constants/theme';
-import { usePreferences } from '@/src/hooks/usePreferences';
+import { useAppTheme } from '@/src/hooks/useAppTheme';
 
 export function LanguagePickerScreen() {
-  const { preferences, updatePreferences } = usePreferences();
+  const { preferences, updatePreferences, isReady } = useAppTheme();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleLanguageChange(value: string) {
+    if (!isReady || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updatePreferences({ language: value });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save language.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <ScreenContainer>
-      <AppText variant="h1">Language Picker</AppText>
+      <AppHeader
+        title="Language"
+        subtitle="Display language"
+        showBack={router.canGoBack()}
+      />
       <AppText variant="body" tone="muted">
-        Choose your preferred display language.
+        Choose your preferred display language. Your choice is saved automatically.
       </AppText>
 
+      {error ? (
+        <AppText variant="caption" style={styles.error}>
+          {error}
+        </AppText>
+      ) : null}
+
       <AppCard>
-        <View style={styles.list}>
-          {languageOptions.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => updatePreferences({ language: option.value })}
-              style={[styles.item, preferences.language === option.value && styles.itemActive]}
-            >
-              <AppText variant="body" tone={preferences.language === option.value ? 'inverse' : 'primary'}>
-                {option.label}
-              </AppText>
-            </Pressable>
-          ))}
-        </View>
+        <AppSelect
+          label="Language"
+          value={preferences.language}
+          options={languageOptions.map((option) => ({
+            label: option.label,
+            value: option.value,
+          }))}
+          disabled={!isReady || saving}
+          onChange={(value) => void handleLanguageChange(value)}
+        />
       </AppCard>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  list: {
-    gap: theme.spacing.xs,
-  },
-  item: {
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.sm,
-    backgroundColor: '#FFFFFF',
-  },
-  itemActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primary,
+  error: {
+    color: theme.colors.danger,
+    fontWeight: '700',
   },
 });
-

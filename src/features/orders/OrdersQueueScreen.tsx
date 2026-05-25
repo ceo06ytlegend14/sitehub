@@ -193,6 +193,12 @@ export function OrdersQueueScreen() {
 
       {isPrinter ? (
         <>
+          <AppButton
+            label="Create Order"
+            iconName="Plus"
+            role="printer"
+            onPress={() => router.push('/new-order')}
+          />
           {jobsError ? (
             <AppCard>
               <AppText variant="body" tone="muted">{jobsError}</AppText>

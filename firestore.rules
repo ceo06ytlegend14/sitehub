@@ -37,6 +37,10 @@ service cloud.firestore {
       return role() in ['customer', 'user'];
     }
 
+    function isOrderCreator() {
+      return isSales() || isPrinter();
+    }
+
     function sameBranch(data) {
       return !('branch' in data)
         || !('branch' in userDoc())
@@ -77,7 +81,7 @@ service cloud.firestore {
       );
       allow create: if isSignedIn() && (
         isAdmin()
-        || (isSales()
+        || (isOrderCreator()
           && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.assignedSalesman == request.auth.uid)
       );
@@ -108,7 +112,7 @@ service cloud.firestore {
       );
       allow create: if isSignedIn() && (
         isAdmin()
-        || (isSales() && request.resource.data.createdBy == request.auth.uid)
+        || (isOrderCreator() && request.resource.data.createdBy == request.auth.uid)
       );
       allow update: if isSignedIn() && (
         isAdmin()

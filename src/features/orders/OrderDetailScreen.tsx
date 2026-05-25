@@ -161,7 +161,7 @@ function Field({
 
 const f = StyleSheet.create({
   wrap:      { flex: 1, gap: 6 },
-  label:     { fontSize: 12, fontWeight: '600', color: C.inkMid, letterSpacing: 0.1 },
+  label:     { fontSize: 12, fontWeight: '600', color: C.inkMid, letterSpacing: 0 },
   input: {
     backgroundColor: C.bg, borderRadius: 14,
     paddingHorizontal: 16, height: 52,
@@ -204,7 +204,7 @@ function PillGroup<T extends string>({
 
 const pg = StyleSheet.create({
   wrap:  { gap: 8 },
-  label: { fontSize: 12, fontWeight: '600', color: C.inkMid, letterSpacing: 0.1 },
+  label: { fontSize: 12, fontWeight: '600', color: C.inkMid, letterSpacing: 0 },
   row:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill: {
     paddingHorizontal: 16, paddingVertical: 10,
@@ -288,7 +288,7 @@ const sc = StyleSheet.create({
     width: 44, height: 44, borderRadius: 14,
     backgroundColor: C.pinkFaint, alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 17, fontWeight: '700', color: C.ink, letterSpacing: -0.3, flex: 1 },
+  title: { fontSize: 17, fontWeight: '700', color: C.ink, letterSpacing: 0, flex: 1 },
 });
 
 /** Stat tile for the quick summary strip */
@@ -819,8 +819,8 @@ const hero = StyleSheet.create({
     padding: 6, justifyContent: 'space-between',
   },
   chipLine: { height: 1.2, backgroundColor: 'rgba(255,255,255,0.55)' },
-  code:    { color: '#fff', fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
-  product: { color: 'rgba(255,255,255,0.60)', fontSize: 10, fontWeight: '700', marginTop: 2, letterSpacing: 0.5 },
+  code:    { color: '#fff', fontSize: 22, fontWeight: '800', letterSpacing: 0 },
+  product: { color: 'rgba(255,255,255,0.60)', fontSize: 10, fontWeight: '700', marginTop: 2, letterSpacing: 0 },
   bottom:  { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
   name:    { color: '#fff', fontSize: 15, fontWeight: '800' },
   sub:     { color: 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: '700', marginTop: 2 },
@@ -856,7 +856,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   headerMid: { flex: 1 },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 0 },
   headerSub:   { color: 'rgba(255,255,255,0.70)', fontSize: 11, fontWeight: '600', marginTop: 2 },
   statusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,

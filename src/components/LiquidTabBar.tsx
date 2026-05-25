@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon, type AppIconName } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
-import { getRoleTheme, RoleTheme, theme } from '@/src/constants/theme';
+import { appRoutes } from '@/src/constants/navigation';
+import { getRoleTheme, theme } from '@/src/constants/theme';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
 interface Props {
   state: any;
@@ -35,13 +38,23 @@ function routeLabel(route: any, descriptors?: Record<string, any>) {
   return options.title ?? route.name.charAt(0).toUpperCase() + route.name.slice(1);
 }
 
-function TabIcon({ routeName, active, roleTheme }: { routeName: string; active: boolean; roleTheme: RoleTheme }) {
+function TabIcon({
+  routeName,
+  active,
+  accentColor,
+  mutedColor,
+}: {
+  routeName: string;
+  active: boolean;
+  accentColor: string;
+  mutedColor: string;
+}) {
   return (
     <View style={styles.iconShell}>
       <AppIcon
         name={routeIcons[routeName] ?? 'Home'}
         size={active ? 24 : 22}
-        color={active ? roleTheme.primary : theme.colors.textMuted}
+        color={active ? accentColor : mutedColor}
       />
     </View>
   );
@@ -110,6 +123,7 @@ function useReduceMotion() {
 }
 
 export function LiquidTabBar({ state, navigation, descriptors }: Props) {
+  const { colors } = usePreferences();
   const insets = useSafeAreaInsets();
   const reduceTransparency = useReduceTransparency();
   const reduceMotion = useReduceMotion();
@@ -131,8 +145,16 @@ export function LiquidTabBar({ state, navigation, descriptors }: Props) {
     visibleRoutes.some((route: any) => route.name === 'queue') &&
     visibleRoutes.some((route: any) => route.name === 'wages');
   const roleTheme = getRoleTheme(isSalesBar ? 'sales' : isPrinterBar ? 'printer' : 'default');
+  const accentColor = colors.primary;
+  const mutedColor = colors.textMuted;
 
-  const items: NavItem[] = isSalesBar
+  const newOrderHref = isSalesBar
+    ? appRoutes.sales.newOrder
+    : isPrinterBar
+      ? appRoutes.printer.newOrder
+      : appRoutes.newOrder;
+
+  const items: NavItem[] = isSalesBar || isPrinterBar
     ? [
         ...visibleRoutes.slice(0, 2).map((route: any) => ({ type: 'route', route }) as RouteItem),
         { type: 'action', key: 'new-order' },
@@ -262,7 +284,7 @@ export function LiquidTabBar({ state, navigation, descriptors }: Props) {
             return (
               <View key={item.key} style={styles.actionSlot}>
                 <Pressable
-                  onPress={() => navigation.navigate('new-order')}
+                  onPress={() => router.push(newOrderHref)}
                   style={({ pressed }) => [
                     styles.actionButton,
                     {
@@ -284,7 +306,9 @@ export function LiquidTabBar({ state, navigation, descriptors }: Props) {
                       <View pointerEvents="none" style={styles.actionGloss} />
                     </>
                   ) : null}
-                  <AppIcon name="Plus" size={24} color={theme.colors.textInverse} />
+                  <View style={styles.actionIcon}>
+                    <AppIcon name="PlusSimple" size={26} color={colors.textInverse} />
+                  </View>
                 </Pressable>
                 <AppText variant="caption" weight="bold" style={[styles.actionLabel, { color: roleTheme.primary }]}>
                   New
@@ -327,7 +351,12 @@ export function LiquidTabBar({ state, navigation, descriptors }: Props) {
                     style={StyleSheet.absoluteFill}
                   />
                 ) : null}
-                <TabIcon routeName={route.name} active={isActive} roleTheme={roleTheme} />
+                <TabIcon
+                  routeName={route.name}
+                  active={isActive}
+                  accentColor={accentColor}
+                  mutedColor={mutedColor}
+                />
                 <AppText
                   variant="caption"
                   weight={isActive ? 'bold' : 'medium'}
@@ -368,8 +397,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.58)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.72)',
     shadowColor: '#0A1020',
     shadowOffset: { width: 0, height: 18 },
     shadowOpacity: 0.16,
@@ -378,7 +405,6 @@ const styles = StyleSheet.create({
   },
   barReducedTransparency: {
     backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
   },
   glassLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -386,8 +412,6 @@ const styles = StyleSheet.create({
   innerStroke: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.56)',
   },
   topShine: {
     position: 'absolute',
@@ -418,8 +442,6 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 58,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
@@ -478,6 +500,9 @@ const styles = StyleSheet.create({
     height: 9,
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.36)',
+  },
+  actionIcon: {
+    zIndex: 1,
   },
   actionLabel: {
     color: theme.roles.sales.primary,

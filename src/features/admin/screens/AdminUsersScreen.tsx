@@ -8,7 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, getDocs, doc, updateDoc, serverTimestamp, orderBy, query } from 'firebase/firestore';
 import { db } from '@/src/services/firebaseClient';
 import { AppIcon } from '@/src/components/AppIcon';
+import { AppSearchBar } from '@/src/components/AppSearchBar';
 import { AppText } from '@/src/components/AppText';
+import { searchEmptyMessage, useSearchQuery } from '@/src/hooks/useSearchQuery';
 import { theme } from '@/src/constants/theme';
 import { UserRole } from '@/src/types/models';
 import { useAuth } from '@/src/hooks/useAuth';
@@ -21,7 +23,7 @@ const adminTheme = theme.roles.admin;
 const BLUE = adminTheme.accent;
 
 const ROLE_OPTIONS: { label: string; value: UserRole; color: string }[] = [
-  { label: 'Sales',    value: 'sales',    color: '#E91E8C' },
+  { label: 'Sales',    value: 'sales',    color: '#0FBAAF' },
   { label: 'Printer',  value: 'printer',  color: '#00BCD4' },
   { label: 'Admin',    value: 'admin',    color: '#7c3aed' },
   { label: 'Super Admin', value: 'super_admin', color: '#111827' },
@@ -59,7 +61,8 @@ export default function AdminUsersScreen() {
   const isSuperAdmin = currentUser?.role === 'super_admin';
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const { input: searchInput, setInput: setSearchInput, query: searchQuery, submitSearch, clearSearch } =
+    useSearchQuery();
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -158,10 +161,15 @@ export default function AdminUsersScreen() {
     }
   }
 
-  const filtered = users.filter(u =>
-    u.displayName.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.role.toLowerCase().includes(search.toLowerCase())
+  const q = searchQuery.toLowerCase();
+  const filtered = users.filter(
+    (u) =>
+      !q ||
+      u.displayName.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.role.toLowerCase().includes(q) ||
+      (u.phone?.toLowerCase().includes(q) ?? false) ||
+      (u.branch?.toLowerCase().includes(q) ?? false)
   );
 
   const counts = {
@@ -180,7 +188,7 @@ export default function AdminUsersScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronRight" size={22} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+          <AppIcon name="ChevronLeft" size={22} color="#fff" />
         </Pressable>
         <AppText style={styles.headerTitle}>User Management</AppText>
         <Pressable style={styles.addBtn} onPress={() => setShowModal(true)}>
@@ -193,7 +201,7 @@ export default function AdminUsersScreen() {
       <View style={styles.statsRow}>
         {[
           { label: 'Total', value: counts.total, color: BLUE },
-          { label: 'Sales', value: counts.sales, color: '#E91E8C' },
+          { label: 'Sales', value: counts.sales, color: '#0FBAAF' },
           { label: 'Printer', value: counts.printer, color: '#00BCD4' },
           { label: 'Admin', value: counts.admin, color: '#7c3aed' },
           { label: 'Super', value: counts.superAdmin, color: '#111827' },
@@ -205,24 +213,23 @@ export default function AdminUsersScreen() {
         ))}
       </View>
 
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <AppIcon name="User" size={16} color={theme.colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, email, role…"
-          placeholderTextColor={theme.colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
+      <AppSearchBar
+        value={searchInput}
+        onChangeText={setSearchInput}
+        onSearch={submitSearch}
+        onClear={clearSearch}
+        loading={loading}
+        placeholder="Search by name, email, role…"
+      />
 
       {/* User list */}
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.listScroll} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {loading ? (
           <AppText style={styles.emptyText}>Loading users…</AppText>
         ) : filtered.length === 0 ? (
-          <AppText style={styles.emptyText}>No users found.</AppText>
+          <AppText style={styles.emptyText}>
+            {searchEmptyMessage(false, Boolean(searchQuery), searchQuery, 'No users found.', '')}
+          </AppText>
         ) : (
           filtered.map(u => (
             <View key={u.id} style={[styles.userCard, !u.isActive && styles.userCardInactive]}>
@@ -329,25 +336,38 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: adminTheme.background },
   header: { backgroundColor: BLUE, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, color: '#fff', fontSize: 18, fontWeight: '700' },
+  headerTitle: { flex: 1, minWidth: 0, color: '#fff', fontSize: 18, fontWeight: '700' },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
   addBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  statsRow: { flexDirection: 'row', padding: 12, gap: 8 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 10, alignItems: 'center', gap: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 },
+  statCard: {
+    flexGrow: 1,
+    flexBasis: '18%',
+    minWidth: 56,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    gap: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  listScroll: { flex: 1 },
   statNum: { fontSize: 22, fontWeight: '700' },
   statLabel: { fontSize: 11, color: '#888' },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', marginHorizontal: 12, marginBottom: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
-  searchInput: { flex: 1, fontSize: 14, color: theme.colors.textPrimary },
   list: { padding: 12, paddingBottom: 100, gap: 10 },
   emptyText: { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 15 },
   userCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
   userCardInactive: { opacity: 0.5 },
-  userLeft: { flexDirection: 'row', gap: 12, flex: 1 },
+  userLeft: { flexDirection: 'row', gap: 12, flex: 1, minWidth: 0 },
   userAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   userAvatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  userInfo: { flex: 1, gap: 2 },
+  userInfo: { flex: 1, minWidth: 0, gap: 2 },
   userName: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
-  userEmail: { fontSize: 12, color: '#888' },
+  userEmail: { fontSize: 12, color: '#888', flexShrink: 1 },
   userMeta: { fontSize: 11, color: '#aaa' },
   userDate: { fontSize: 10, color: '#ccc', marginTop: 2 },
   userRight: { alignItems: 'flex-end', gap: 6 },

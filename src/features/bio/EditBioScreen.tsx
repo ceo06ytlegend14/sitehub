@@ -87,7 +87,7 @@ export function EditBioScreen() {
         {/* Top bar */}
         <View style={styles.topBar}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-            <AppIcon name="ChevronRight" size={22} color={theme.colors.textPrimary} style={{ transform: [{ rotate: '180deg' }] }} />
+            <AppIcon name="ChevronLeft" size={22} color={theme.colors.textPrimary} />
           </Pressable>
           <AppText variant="h2">Edit Bio</AppText>
           <Pressable onPress={() => bioPage && router.push(`/public/${bioPage.slug}`)} style={styles.previewBtn}>
@@ -131,6 +131,6 @@ const styles = StyleSheet.create({
   previewBtn: { paddingHorizontal: theme.spacing.sm, paddingVertical: 6, borderRadius: theme.radius.pill, backgroundColor: theme.colors.primary },
   previewText: { color: '#fff', fontWeight: '700' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.sm },
-  sectionLabel: { textTransform: 'uppercase', letterSpacing: 0.8, fontSize: 10 },
+  sectionLabel: { textTransform: 'uppercase', letterSpacing: 0, fontSize: 10 },
   fields: { gap: theme.spacing.sm },
 });

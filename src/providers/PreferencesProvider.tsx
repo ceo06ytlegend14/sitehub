@@ -1,4 +1,5 @@
-import { PropsWithChildren, createContext, useEffect, useMemo, useState } from 'react';
+import { PropsWithChildren, createContext, useEffect, useMemo, useRef, useState } from 'react';
+import { resolveAppColors, type ResolvedAppColors } from '@/src/constants/themeResolver';
 import {
   defaultUiPreferences,
   getUiPreferences,
@@ -9,6 +10,7 @@ import { UiPreferences } from '@/src/types/models';
 
 interface PreferencesContextValue {
   preferences: UiPreferences;
+  colors: ResolvedAppColors;
   isReady: boolean;
   updatePreferences: (next: Partial<UiPreferences>) => Promise<void>;
   resetPreferences: () => Promise<void>;
@@ -19,6 +21,8 @@ const PreferencesContext = createContext<PreferencesContextValue | undefined>(un
 export function PreferencesProvider({ children }: PropsWithChildren) {
   const [preferences, setPreferences] = useState<UiPreferences>(defaultUiPreferences);
   const [isReady, setIsReady] = useState(false);
+  const preferencesRef = useRef(preferences);
+  preferencesRef.current = preferences;
 
   useEffect(() => {
     getUiPreferences()
@@ -26,17 +30,22 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
       .finally(() => setIsReady(true));
   }, []);
 
+  const colors = useMemo(() => resolveAppColors(preferences), [preferences]);
+
   const value = useMemo<PreferencesContextValue>(
     () => ({
       preferences,
+      colors,
       isReady,
       async updatePreferences(next) {
-        const previous = preferences;
-        const updated = { ...preferences, ...next };
+        const previous = preferencesRef.current;
+        const updated = { ...previous, ...next };
+        preferencesRef.current = updated;
         setPreferences(updated);
         try {
           await setUiPreferences(updated);
         } catch (error) {
+          preferencesRef.current = previous;
           setPreferences(previous);
           throw error;
         }
@@ -52,7 +61,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         }
       },
     }),
-    [isReady, preferences]
+    [colors, isReady, preferences]
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

@@ -44,6 +44,10 @@ const capabilities: Record<UserRole, RoleCapability[]> = {
   ],
   printer: [
     {
+      title: 'Create intake orders',
+      description: 'Can create a new order directly when a customer request arrives at the print station.',
+    },
+    {
       title: 'Assigned queue',
       description: 'Can work on assigned or branch-visible print, NFC, and QA jobs.',
     },

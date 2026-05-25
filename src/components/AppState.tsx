@@ -68,12 +68,13 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
   },
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.radius.md,
+    width: 56,
+    height: 56,
+    borderRadius: theme.radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.surfaceSoft,
+    ...theme.shadows.control,
   },
   centerText: {
     textAlign: 'center',

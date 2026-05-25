@@ -32,7 +32,7 @@ export default function QaVideoCaptureScreen() {
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <Pressable onPress={() => router.replace('/printer/queue')} style={styles.backBtn} hitSlop={12}>
-            <AppIcon name="ChevronRight" size={22} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+            <AppIcon name="ChevronLeft" size={22} color="#fff" />
           </Pressable>
           <View style={styles.headerCenter}>
             <AppText style={styles.headerTitle}>QA Video</AppText>
@@ -98,7 +98,7 @@ export default function QaVideoCaptureScreen() {
       {/* Dark header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronRight" size={22} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+          <AppIcon name="ChevronLeft" size={22} color="#fff" />
         </Pressable>
         <View style={styles.headerCenter}>
           <AppText style={styles.headerTitle}>QA Video</AppText>

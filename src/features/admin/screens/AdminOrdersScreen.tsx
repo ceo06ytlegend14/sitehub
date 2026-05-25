@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/src/services/firebaseClient';
 import { AppIcon } from '@/src/components/AppIcon';
+import { AppSearchBar } from '@/src/components/AppSearchBar';
 import { AppText } from '@/src/components/AppText';
+import { searchEmptyMessage, useSearchQuery } from '@/src/hooks/useSearchQuery';
 import { orderCardStatusOptions, orderStatusOptions, paymentStatusColors } from '@/src/constants/options';
 import { theme } from '@/src/constants/theme';
 import { updateOrderStatus } from '@/src/services/firestoreService';
@@ -20,7 +22,8 @@ const STATUS_FLOW: OrderStatus[] = ['new','design','printing','nfc_writing','nfc
 export default function AdminOrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const { input: searchInput, setInput: setSearchInput, query: searchQuery, submitSearch, clearSearch } =
+    useSearchQuery();
   const [filterStatus, setFilterStatus] = useState('all');
 
   async function load() {
@@ -73,7 +76,12 @@ export default function AdminOrdersScreen() {
   }
 
   const filtered = orders.filter(o => {
-    const matchSearch = o.customerName?.toLowerCase().includes(search.toLowerCase()) || o.cardCode?.toLowerCase().includes(search.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const matchSearch =
+      !q ||
+      o.customerName?.toLowerCase().includes(q) ||
+      o.cardCode?.toLowerCase().includes(q) ||
+      o.id?.toLowerCase().includes(q);
     const matchStatus = filterStatus === 'all'
       || (filterStatus === 'frozen' || filterStatus === 'closed'
         ? (o.cardStatus ?? 'active') === filterStatus
@@ -84,7 +92,7 @@ export default function AdminOrdersScreen() {
     total: orders.length,
     filtered: filtered.length,
     filterStatus,
-    search,
+    searchQuery,
     firstVisible: filtered[0]
       ? {
           id: filtered[0].id,
@@ -100,17 +108,20 @@ export default function AdminOrdersScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronRight" size={22} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+          <AppIcon name="ChevronLeft" size={22} color="#fff" />
         </Pressable>
         <AppText style={styles.headerTitle}>Orders</AppText>
         <AppText style={styles.headerCount}>{orders.length} total</AppText>
       </View>
 
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <AppIcon name="ClipboardList" size={16} color="#888" />
-        <TextInput style={styles.searchInput} placeholder="Search customer or card code…" placeholderTextColor="#aaa" value={search} onChangeText={setSearch} />
-      </View>
+      <AppSearchBar
+        value={searchInput}
+        onChangeText={setSearchInput}
+        onSearch={submitSearch}
+        onClear={clearSearch}
+        loading={loading}
+        placeholder="Search customer or card code…"
+      />
 
       {/* Status filter */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
@@ -127,9 +138,19 @@ export default function AdminOrdersScreen() {
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {loading ? <AppText style={styles.empty}>Loading…</AppText>
-          : filtered.length === 0 ? <AppText style={styles.empty}>No orders found.</AppText>
-          : filtered.map(order => {
+        {loading ? (
+          <AppText style={styles.empty}>Loading…</AppText>
+        ) : filtered.length === 0 ? (
+          <AppText style={styles.empty}>
+            {searchEmptyMessage(
+              false,
+              Boolean(searchQuery),
+              searchQuery,
+              filterStatus === 'all' ? 'No orders found.' : `No ${filterStatus.replace('_', ' ')} orders.`
+            )}
+          </AppText>
+        ) : (
+          filtered.map(order => {
             const statusOpt = orderStatusOptions.find(o => o.value === order.status);
             const cardStatus = order.cardStatus ?? 'active';
             const cardStatusOpt = orderCardStatusOptions.find(o => o.value === cardStatus);
@@ -173,7 +194,8 @@ export default function AdminOrdersScreen() {
                 ) : null}
               </Pressable>
             );
-          })}
+          })
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -185,8 +207,6 @@ const styles = StyleSheet.create({
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, color: '#fff', fontSize: 18, fontWeight: '700' },
   headerCount: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', margin: 12, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
-  searchInput: { flex: 1, fontSize: 14, color: '#333' },
   filterScroll: { paddingLeft: 12, marginBottom: 4 },
   filterRow: { flexDirection: 'row', gap: 8, paddingRight: 12, paddingBottom: 8 },
   filterPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff' },

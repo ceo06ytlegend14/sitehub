@@ -12,6 +12,7 @@ export const appRoutes = {
   },
   printer: {
     queue: '/printer/queue',
+    newOrder: '/printer/new-order',
     settings: '/printer/settings',
     wages: '/printer/wages',
   },

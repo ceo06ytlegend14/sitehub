@@ -2,6 +2,8 @@ import { ActivityIndicator, Pressable, PressableProps, StyleProp, StyleSheet, Vi
 import { AppIcon, type AppIconName } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
 import { getRoleTheme, RoleThemeKey, theme } from '@/src/constants/theme';
+import { iosDesign } from '@/src/design-system/ios';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'disabled';
 
@@ -36,26 +38,31 @@ export function AppButton({
   style,
   ...rest
 }: AppButtonProps) {
+  const { colors } = usePreferences();
   const isDisabled = disabled || loading || variant === 'disabled';
   const resolvedVariant = isDisabled && !loading ? 'disabled' : variant;
   const roleTheme = getRoleTheme(role);
   const variantStyle: Record<ButtonVariant, ViewStyle> = {
     primary: {
       backgroundColor: roleTheme.primary,
+      ...theme.shadows.control,
+      shadowColor: roleTheme.primary,
     },
     secondary: {
       backgroundColor: roleTheme.primaryDark,
+      ...theme.shadows.control,
+      shadowColor: roleTheme.primaryDark,
     },
     outline: {
-      backgroundColor: theme.colors.surface,
-      borderColor: theme.colors.border,
-      borderWidth: 1,
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: StyleSheet.hairlineWidth,
     },
     ghost: {
       backgroundColor: roleTheme.soft,
     },
     disabled: {
-      backgroundColor: theme.colors.surfaceSoft,
+      backgroundColor: colors.surfaceSoft,
     },
   };
   const iconColor =
@@ -66,6 +73,7 @@ export function AppButton({
   return (
     <Pressable
       disabled={isDisabled}
+      accessibilityRole="button"
       style={({ pressed }) => [
         styles.button,
         variantStyle[resolvedVariant],
@@ -81,7 +89,7 @@ export function AppButton({
       ) : (
         <View style={[styles.content, iconPosition === 'right' && styles.contentReverse]}>
           {iconName ? <AppIcon name={iconName} size={20} color={iconColor} /> : null}
-          <AppText variant="body" tone={labelTone[resolvedVariant]} weight="semibold">
+          <AppText variant="body" tone={labelTone[resolvedVariant]} weight="bold">
             {label}
           </AppText>
         </View>
@@ -92,11 +100,12 @@ export function AppButton({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 52,
-    borderRadius: theme.radius.md,
+    minHeight: 56,
+    borderRadius: theme.radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.lg,
+    overflow: 'hidden',
   },
   content: {
     flexDirection: 'row',
@@ -111,7 +120,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   pressed: {
-    transform: [{ scale: 0.98 }],
+    opacity: 0.86,
+    transform: [{ scale: iosDesign.animation.pressScale }],
   },
   disabled: {
     opacity: 0.6,

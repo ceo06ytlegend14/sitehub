@@ -43,6 +43,12 @@ export function getAuthErrorMessage(error: unknown): string {
   if (code === 'auth/network-request-failed' || message.toLowerCase().includes('network')) {
     return 'No internet connection. Check your connection and try again.';
   }
+  if (code === 'unavailable') {
+    return 'Firebase is temporarily unavailable. Check your connection and try again.';
+  }
+  if (code === 'deadline-exceeded') {
+    return 'The request took too long. Check your connection and try again.';
+  }
   if (code === 'auth/email-already-in-use') {
     return 'That email is already registered.';
   }
@@ -51,6 +57,9 @@ export function getAuthErrorMessage(error: unknown): string {
   }
   if (code === 'permission-denied' || message.toLowerCase().includes('permission')) {
     return 'Permission denied. Your account does not have access to this action.';
+  }
+  if (code === 'unauthenticated') {
+    return 'Your session expired. Sign in again and retry.';
   }
   return message || 'Unable to complete this request right now.';
 }

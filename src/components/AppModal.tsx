@@ -71,16 +71,18 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15,23,42,0.36)',
+    backgroundColor: 'rgba(17,24,39,0.34)',
     padding: theme.spacing.md,
   },
   panel: {
     width: '100%',
     borderRadius: theme.radius.xl,
     backgroundColor: theme.colors.surface,
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
-    ...theme.shadows.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.xl,
+    gap: theme.spacing.lg,
+    ...theme.shadows.floating,
   },
   header: {
     flexDirection: 'row',
@@ -95,8 +97,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: theme.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -111,6 +113,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
   },
   action: {
     flex: 1,

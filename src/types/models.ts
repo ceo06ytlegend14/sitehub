@@ -184,7 +184,26 @@ export interface BioPage {
   updatedAt: string;
 }
 
+export type ProfileTheme = 'aqua' | 'ocean' | 'slate';
+
+export type TypographyColorKey =
+  | 'deep_teal'
+  | 'ocean_blue'
+  | 'forest'
+  | 'slate'
+  | 'indigo'
+  | 'violet'
+  | 'rose'
+  | 'amber'
+  | 'charcoal'
+  | 'midnight';
+
 export interface UiPreferences {
   language: string;
+  /** Bio page theme (public profile pages). */
   theme: BioTheme;
+  /** App-wide profile chrome theme. */
+  profileTheme: ProfileTheme;
+  colorMode: 'light' | 'dark';
+  typographyColor: TypographyColorKey;
 }

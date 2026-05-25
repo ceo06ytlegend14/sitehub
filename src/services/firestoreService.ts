@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { firebaseCollections } from '@/src/constants/collections';
 import { auth, db } from '@/src/services/firebaseClient';
+import { isDemoAccountEmail } from '@/src/utils/demoAccounts';
 import {
   BioPage,
   NfcCard,
@@ -57,7 +58,13 @@ const PHONE_PATTERN = /^[+()\d\s-]{6,24}$/;
 const URL_PATTERN = /^https?:\/\/\S+$/i;
 
 function actorId(fallback?: string) {
-  return fallback || auth.currentUser?.uid || '';
+  return auth.currentUser?.uid || fallback || '';
+}
+
+function assertSignedInStaff() {
+  if (!auth.currentUser?.uid) {
+    throw new Error('Your session expired. Sign in again and retry.');
+  }
 }
 
 function toIso(value: unknown): string {
@@ -81,7 +88,7 @@ function assertNonEmpty(value: string | undefined, message: string) {
 
 function assertValidOrderInput(input: CreateOrderInput) {
   assertNonEmpty(input.customerName, 'Customer name is required.');
-  assertNonEmpty(input.createdBy, 'A signed-in sales user is required to create orders.');
+  assertNonEmpty(input.createdBy, 'A signed-in staff account is required to create orders.');
 
   if (!input.phone?.trim() && !input.telegram?.trim()) {
     throw new Error('Phone or Telegram contact is required.');
@@ -188,6 +195,10 @@ export type UpdateOrderDetailsInput = Partial<Pick<
 >>;
 
 async function assertNoDuplicateOpenOrder(input: CreateOrderInput) {
+  if (isDemoAccountEmail(auth.currentUser?.email)) {
+    return;
+  }
+
   const phone = input.phone?.trim();
   const telegram = input.telegram?.trim();
   const contactConstraint = phone
@@ -230,7 +241,8 @@ async function assertNoDuplicateOpenOrder(input: CreateOrderInput) {
 }
 
 export async function createOrder(input: CreateOrderInput): Promise<string> {
-  const createdBy = actorId(input.createdBy);
+  assertSignedInStaff();
+  const staffId = actorId(input.createdBy);
   const normalized: CreateOrderInput = {
     ...input,
     customerName: input.customerName.trim(),
@@ -256,8 +268,8 @@ export async function createOrder(input: CreateOrderInput): Promise<string> {
     dueDate: input.dueDate?.trim() || undefined,
     priority: input.priority,
     notes: input.notes?.trim() || undefined,
-    assignedSalesman: input.assignedSalesman || createdBy,
-    createdBy,
+    assignedSalesman: staffId,
+    createdBy: staffId,
   };
 
   assertValidOrderInput(normalized);
@@ -272,7 +284,7 @@ export async function createOrder(input: CreateOrderInput): Promise<string> {
     profileUrl,
     status: 'new' as OrderStatus,
     cardStatus: 'active' as OrderCardStatus,
-    updatedBy: createdBy,
+    updatedBy: staffId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }));
@@ -289,8 +301,8 @@ export async function createOrder(input: CreateOrderInput): Promise<string> {
     perCardBonus: 0.5,
     perOrderBonus: 0,
     salaryStatus: 'unpaid',
-    createdBy,
-    updatedBy: createdBy,
+    createdBy: staffId,
+    updatedBy: staffId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

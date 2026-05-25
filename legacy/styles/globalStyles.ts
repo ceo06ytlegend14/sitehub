@@ -6,7 +6,7 @@ export const AppleColors = {
   systemGreen: colors.success,
   systemIndigo: '#4F46E5',
   systemOrange: colors.warning,
-  systemPink: '#EC4899',
+  systemPink: '#0FBAAF',
   systemPurple: '#8B5CF6',
   systemRed: colors.danger,
   systemTeal: '#14B8A6',

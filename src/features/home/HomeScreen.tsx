@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   greeting: {
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   metricsRow: {
     flexDirection: 'row',

@@ -150,7 +150,7 @@ export default function ReportsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronRight" size={22} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+          <AppIcon name="ChevronLeft" size={22} color="#fff" />
         </Pressable>
         <AppText style={styles.headerTitle}>Reports</AppText>
       </View>

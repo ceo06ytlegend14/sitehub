@@ -1,159 +1,166 @@
 /**
- * AppIcon - shared icon component using lucide-react-native.
- * All icons render with one stroke weight and size normalized to 20-24.
- *
- * Usage:
- *   <AppIcon name="ClipboardList" color={theme.colors.primary} />
- *   <AppIcon name="Printer" size={20} color="#fff" />
+ * AppIcon - shared icon component using Solar Icons.
  */
 
+import type { ComponentProps } from 'react';
 import {
+  AddCircle,
+  AltArrowLeft,
+  AltArrowRight,
   Archive,
-  ArchiveRestore,
+  ArchiveUp,
   ArrowLeft,
-  BadgeDollarSign,
-  BadgeCheck,
   Bell,
+  Bolt,
+  BoltCircle,
+  Box,
   Calendar,
-  CalendarDays,
-  CheckCheck,
-  ChevronLeft,
-  ChevronRight,
+  CalendarDate,
+  Card,
+  CheckCircle,
+  CheckRead,
   ClipboardList,
-  Clock,
-  CreditCard,
-  Circle,
-  CircleAlert,
-  CircleCheck,
-  CircleDollarSign,
-  CircleUserRound,
-  ExternalLink,
+  ClockCircle,
+  CloseCircle,
+  DangerCircle,
+  DangerTriangle,
+  Delivery,
+  Dollar,
+  DollarMinimalistic,
   Download,
   Eye,
+  EyeClosed,
   FileText,
-  FileVideo,
   FlipHorizontal,
-  Home,
+  Gallery,
+  GraphUp,
   History,
-  Image as ImageIcon,
-  Info,
+  Home,
+  InfoCircle,
+  Letter,
   Link,
-  LogOut,
-  MapPin,
-  Mail,
-  MoreHorizontal,
-  Nfc,
-  Package,
-  PenLine,
+  Logout,
+  Magnifier,
+  MapPoint,
+  MenuDots,
+  PenNewRound,
   Phone,
   Printer,
-  Plus,
   QrCode,
-  RefreshCw,
-  RotateCcw,
-  ScanLine,
-  Search,
+  RecordCircle,
+  Refresh,
+  Restart,
+  Scanner,
   Settings,
   Share,
   Shield,
   ShieldCheck,
+  SmartphoneVibration,
   Snowflake,
-  Sparkles,
+  SquareArrowRightUp,
+  Stars,
   Target,
-  Trash2,
-  TriangleAlert,
-  TrendingUp,
-  Truck,
+  TrashBinTrash,
   Upload,
   User,
+  UserCircle,
   UserPlus,
-  UserRound,
-  Users,
+  UserRounded,
+  UsersGroupRounded,
+  VerifiedCheck,
+  VideoFrame,
   Wallet,
-  X,
-  Zap,
-  ZapOff,
-  type LucideProps,
-} from 'lucide-react-native';
-import { theme } from '@/src/constants/theme';
+} from '@solar-icons/react-native/Linear';
+import { View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
-// Icon registry. Add new icons here so pages do not import icon libraries directly.
-const ICON_STROKE_WIDTH = 2.25;
 const DEFAULT_ICON_SIZE = 22;
-const MIN_ICON_SIZE = 20;
-const MAX_ICON_SIZE = 24;
+type SolarIcon = typeof Archive;
+type SolarIconProps = ComponentProps<SolarIcon>;
+
+/** Plain plus for filled circular buttons (avoids circle-on-circle from AddCircle). */
+function PlusSimple({ size = DEFAULT_ICON_SIZE, color = 'currentColor' }: SolarIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 7v10M7 12h10" stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 const icons = {
   Archive,
-  ArchiveRestore,
+  ArchiveRestore: ArchiveUp,
   ArrowLeft,
-  Home,
-  ClipboardList,
-  Printer,
-  Wallet,
-  User,
-  Phone,
-  Package,
-  Nfc,
-  FileVideo,
-  QrCode,
-  ScanLine,
-  CreditCard,
-  CircleAlert,
-  CircleCheck,
-  CircleDollarSign,
-  CircleUserRound,
-  BadgeDollarSign,
-  BadgeCheck,
+  BadgeDollarSign: DollarMinimalistic,
+  BadgeCheck: VerifiedCheck,
   Bell,
   Calendar,
-  CalendarDays,
-  CheckCheck,
-  Clock,
-  ChevronLeft,
-  Circle,
-  LogOut,
-  ChevronRight,
-  ExternalLink,
+  CalendarDays: CalendarDate,
+  CheckCheck: CheckRead,
+  ChevronLeft: AltArrowLeft,
+  ChevronRight: AltArrowRight,
+  ClipboardList,
+  Clock: ClockCircle,
+  CreditCard: Card,
+  Circle: RecordCircle,
+  CircleAlert: DangerCircle,
+  CircleCheck: CheckCircle,
+  CircleDollarSign: Dollar,
+  CircleUserRound: UserCircle,
+  ExternalLink: SquareArrowRightUp,
   Download,
   Eye,
+  EyeOff: EyeClosed,
   FileText,
+  FileVideo: VideoFrame,
+  FlipHorizontal,
+  Home,
   History,
-  ShieldCheck,
+  Image: Gallery,
+  Info: InfoCircle,
+  Link,
+  LogOut: Logout,
+  MapPin: MapPoint,
+  Mail: Letter,
+  MoreHorizontal: MenuDots,
+  Nfc: SmartphoneVibration,
+  Package: Box,
+  PenLine: PenNewRound,
+  Phone,
+  Printer,
+  Plus: AddCircle,
+  PlusSimple,
+  QrCode,
+  RefreshCw: Refresh,
+  RotateCcw: Restart,
+  ScanLine: Scanner,
+  Search: Magnifier,
+  Settings,
   Share,
   Shield,
+  ShieldCheck,
   Snowflake,
-  Search,
-  Settings,
-  Sparkles,
+  Sparkles: Stars,
   Target,
-  Trash2,
-  TriangleAlert,
-  TrendingUp,
-  Truck,
-  Mail,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
+  Trash2: TrashBinTrash,
+  TriangleAlert: DangerTriangle,
+  TrendingUp: GraphUp,
+  Truck: Delivery,
   Upload,
-  Image: ImageIcon,
-  Info,
-  Link,
-  MapPin,
-  PenLine,
-  RotateCcw,
+  User,
   UserPlus,
-  UserRound,
-  Users,
-  X,
-  Zap,
-  ZapOff,
-  FlipHorizontal,
-} as const;
+  UserRound: UserRounded,
+  Users: UsersGroupRounded,
+  Wallet,
+  X: CloseCircle,
+  Zap: Bolt,
+  ZapOff: BoltCircle,
+} satisfies Record<string, SolarIcon>;
 
 export type AppIconName = keyof typeof icons;
 
-interface AppIconProps extends Omit<LucideProps, 'ref' | 'size' | 'color' | 'strokeWidth'> {
+interface AppIconProps extends Omit<SolarIconProps, 'size' | 'color'> {
   name: AppIconName;
   size?: number;
   color?: string;
@@ -162,18 +169,16 @@ interface AppIconProps extends Omit<LucideProps, 'ref' | 'size' | 'color' | 'str
 export function AppIcon({
   name,
   size = DEFAULT_ICON_SIZE,
-  color = theme.colors.textPrimary,
+  color,
   ...rest
 }: AppIconProps) {
-  const Icon = icons[name];
-  const normalizedSize = Math.min(MAX_ICON_SIZE, Math.max(MIN_ICON_SIZE, size));
-  return (
-    <Icon
-      size={normalizedSize}
-      color={color}
-      strokeWidth={ICON_STROKE_WIDTH}
-      absoluteStrokeWidth
-      {...rest}
-    />
-  );
+  const { colors } = usePreferences();
+  const Icon = icons[name] as SolarIcon | undefined;
+  const resolvedColor = color ?? colors.textPrimary;
+
+  if (!Icon) {
+    return <View style={{ width: size, height: size }} />;
+  }
+
+  return <Icon size={size} color={resolvedColor} {...rest} />;
 }

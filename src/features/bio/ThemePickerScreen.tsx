@@ -1,6 +1,9 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { AppCard } from '@/src/components/AppCard';
-import { AppIcon } from '@/src/components/AppIcon';
+import { AppHeader } from '@/src/components/AppHeader';
+import { AppSelect } from '@/src/components/AppSelect';
 import { AppText } from '@/src/components/AppText';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { bioThemeOptions } from '@/src/constants/options';
@@ -11,54 +14,78 @@ import { BioTheme } from '@/src/types/models';
 
 export function ThemePickerScreen() {
   const { user } = useAuth();
-  const { bioPage, saveBioPage } = useBioPage(user?.id ?? '');
-
-  async function handleSelect(value: BioTheme) {
-    if (!bioPage) return;
-    await saveBioPage({ ...bioPage, theme: value });
-  }
+  const { bioPage, saveBioPage, isLoading } = useBioPage(user?.id ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const current = bioPage?.theme ?? 'vibrant_pink';
 
+  async function handleSelect(value: BioTheme) {
+    if (!bioPage || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await saveBioPage({ ...bioPage, theme: value });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save theme.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <ScreenContainer>
-      <AppText variant="h1">Choose a Vibe</AppText>
+      <AppHeader
+        title="Bio theme"
+        subtitle="Public page look"
+        showBack={router.canGoBack()}
+      />
       <AppText variant="body" tone="muted">
-        Pick the look for your public bio page.
+        Pick the look for your public bio page. Changes save when you choose a theme.
       </AppText>
 
-      {bioThemeOptions.map((opt) => {
-        const isSelected = current === opt.value;
-        return (
-          <Pressable key={opt.value} onPress={() => handleSelect(opt.value)}>
-            <AppCard style={[styles.card, isSelected && { borderColor: opt.accent, borderWidth: 2 }]}>
-              {/* Preview swatch */}
+      {error ? (
+        <AppText variant="caption" style={styles.error}>
+          {error}
+        </AppText>
+      ) : null}
+
+      <AppCard>
+        <AppSelect<BioTheme>
+          label="Theme"
+          value={current}
+          disabled={isLoading || !bioPage || saving}
+          options={bioThemeOptions.map((opt) => ({
+            label: opt.label,
+            value: opt.value,
+            leading: (
               <View style={[styles.swatch, { backgroundColor: opt.bg }]}>
                 <View style={[styles.swatchBar, { backgroundColor: opt.accent }]} />
-                <View style={[styles.swatchDot, { backgroundColor: opt.accent }]} />
               </View>
-              {/* Info */}
-              <View style={styles.info}>
-                <AppText variant="h2">{opt.label}</AppText>
-                <AppText variant="caption" tone="muted">
-                  {isSelected ? 'Currently selected' : 'Tap to apply'}
-                </AppText>
-              </View>
-              {isSelected ? (
-                <AppIcon name="ShieldCheck" size={20} color={opt.accent} />
-              ) : null}
-            </AppCard>
-          </Pressable>
-        );
-      })}
+            ),
+          }))}
+          onChange={(value) => void handleSelect(value)}
+        />
+      </AppCard>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
-  swatch: { width: 72, height: 72, borderRadius: theme.radius.lg, justifyContent: 'flex-end', padding: theme.spacing.sm, gap: 4 },
-  swatchBar: { height: 8, borderRadius: theme.radius.pill, opacity: 0.8 },
-  swatchDot: { width: 20, height: 20, borderRadius: 10, alignSelf: 'flex-end' },
-  info: { flex: 1, gap: 2 },
+  swatch: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.radius.md,
+    justifyContent: 'flex-end',
+    padding: 4,
+  },
+  swatchBar: {
+    height: 6,
+    borderRadius: theme.radius.pill,
+    opacity: 0.85,
+  },
+  error: {
+    color: theme.colors.danger,
+    fontWeight: '700',
+  },
 });

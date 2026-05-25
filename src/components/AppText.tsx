@@ -1,6 +1,7 @@
 import { PropsWithChildren } from 'react';
 import { StyleProp, StyleSheet, Text, TextProps, TextStyle } from 'react-native';
 import { TextVariant, theme } from '@/src/constants/theme';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
 type TextTone = 'primary' | 'muted' | 'inverse';
 type TextWeight = 'regular' | 'medium' | 'semibold' | 'bold';
@@ -13,17 +14,23 @@ interface AppTextProps extends TextProps {
   style?: StyleProp<TextStyle>;
 }
 
-const toneStyles: Record<TextTone, TextStyle> = {
-  primary: { color: theme.colors.textPrimary },
-  muted: { color: theme.colors.textMuted },
-  inverse: { color: theme.colors.textInverse },
-};
-
 const weightStyles: Record<TextWeight, TextStyle> = {
-  regular: { fontWeight: '400' },
-  medium: { fontWeight: '500' },
-  semibold: { fontWeight: '600' },
-  bold: { fontWeight: '700' },
+  regular: {
+    fontFamily: theme.typography.fontFamilyRegular,
+    fontWeight: '400',
+  },
+  medium: {
+    fontFamily: theme.typography.fontFamilyMedium,
+    fontWeight: '500',
+  },
+  semibold: {
+    fontFamily: theme.typography.fontFamilySemiBold,
+    fontWeight: '600',
+  },
+  bold: {
+    fontFamily: theme.typography.fontFamilyBold,
+    fontWeight: '700',
+  },
 };
 
 function inferVariantFromStyle(style: TextStyle | undefined): TextVariant {
@@ -58,10 +65,17 @@ export function AppText({
   style,
   ...rest
 }: PropsWithChildren<AppTextProps>) {
+  const { colors } = usePreferences();
   const flattenedStyle = StyleSheet.flatten(style);
   const resolvedVariant = variant ?? inferVariantFromStyle(flattenedStyle);
   const safeStyle = sanitizeTextStyle(flattenedStyle);
   const resolvedTone = muted ? 'muted' : tone;
+
+  const toneStyles: Record<TextTone, TextStyle> = {
+    primary: { color: colors.typographyColor },
+    muted: { color: colors.textMuted },
+    inverse: { color: colors.textInverse },
+  };
 
   return (
     <Text

@@ -1,11 +1,12 @@
 import { PropsWithChildren } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getRoleTheme, RoleThemeKey, theme } from '@/src/constants/theme';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
 interface ScreenContainerProps {
   scroll?: boolean;
-  contentStyle?: object;
+  contentStyle?: StyleProp<ViewStyle>;
   role?: RoleThemeKey;
 }
 
@@ -15,7 +16,10 @@ export function ScreenContainer({
   contentStyle,
   role = 'default',
 }: PropsWithChildren<ScreenContainerProps>) {
+  const { colors } = usePreferences();
   const roleTheme = getRoleTheme(role);
+  const backgroundColor = role === 'admin' ? roleTheme.background : colors.background;
+
   const content = (
     <View style={[styles.content, contentStyle]}>
       {children}
@@ -23,9 +27,14 @@ export function ScreenContainer({
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: roleTheme.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {content}
         </ScrollView>
       ) : (
@@ -41,10 +50,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   scrollContent: {
-    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
     paddingBottom: 120,
   },
   content: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.lg,
   },
 });

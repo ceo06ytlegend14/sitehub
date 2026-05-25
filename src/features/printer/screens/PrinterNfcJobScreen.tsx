@@ -72,7 +72,7 @@ export default function NfcProgrammingScreen() {
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <Pressable onPress={() => router.replace('/printer/queue')} style={styles.backBtn} hitSlop={12}>
-            <AppIcon name="ChevronRight" size={22} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+            <AppIcon name="ChevronLeft" size={22} color="#fff" />
           </Pressable>
           <View style={styles.headerInfo}>
             <AppText style={styles.headerTitle}>NFC Encode</AppText>
@@ -139,7 +139,7 @@ export default function NfcProgrammingScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-            <AppIcon name="ChevronRight" size={22} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+            <AppIcon name="ChevronLeft" size={22} color="#fff" />
           </Pressable>
           <View style={styles.headerInfo}>
             <AppText style={styles.headerSub}>Job #{String(job?.queueNumber ?? '').slice(-4)}</AppText>
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 120, gap: 14 },
   payloadCard: { backgroundColor: theme.colors.surface, borderRadius: 16, padding: 16, gap: 6, borderLeftWidth: 4, borderLeftColor: TEAL },
   payloadHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  payloadLabel: { fontSize: 10, fontWeight: '700', color: TEAL, textTransform: 'uppercase', letterSpacing: 0.8 },
+  payloadLabel: { fontSize: 10, fontWeight: '700', color: TEAL, textTransform: 'uppercase', letterSpacing: 0 },
   payloadUrl: { fontSize: 15, fontWeight: '700', color: TEAL_DARK },
   payloadSub: { fontSize: 11, color: theme.colors.textMuted },
   tapZone: { height: 200, borderRadius: 24, borderWidth: 2, borderColor: printerTheme.soft, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: theme.colors.surface },

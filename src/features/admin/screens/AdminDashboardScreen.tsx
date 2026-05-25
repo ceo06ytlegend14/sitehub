@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: NAVY_SOFT },
   header: { backgroundColor: NAVY, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
   headerLeft: { flex: 1, gap: 2 },
-  headerSub: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  headerSub: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '700', letterSpacing: 0 },
   headerTitle: { color: '#fff', fontSize: 26, fontWeight: '700' },
   headerEmail: { color: 'rgba(255,255,255,0.55)', fontSize: 12, marginTop: 2 },
   headerRight: { alignItems: 'center', gap: 8 },

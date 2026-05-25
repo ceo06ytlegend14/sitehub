@@ -39,9 +39,10 @@ import {
 import { getAuthErrorMessage } from '@/src/services/authService';
 import { CardDesign, Order, PaymentStatus } from '@/src/types/models';
 
-const PINK = '#E91E8C';
+const salesTheme = theme.roles.sales;
+const PINK = salesTheme.primary;
 const MUTED = theme.colors.textMuted;
-const BORDER = '#F4B7D8';
+const BORDER = theme.colors.border;
 const SURFACE = theme.colors.surface;
 
 type EditableForm = {
@@ -813,7 +814,7 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     backgroundColor: '#F7F8FA',
     borderTopWidth: 1,
-    borderTopColor: '#F4B7D8',
+    borderTopColor: theme.colors.border,
   },
   secondaryButton: {
     minHeight: 52,

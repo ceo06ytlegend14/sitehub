@@ -1,7 +1,8 @@
-import { forwardRef } from 'react';
+import { forwardRef, useState } from 'react';
 import { StyleProp, StyleSheet, TextInput, TextInputProps, TextStyle, View } from 'react-native';
 import { AppText } from '@/src/components/AppText';
 import { getRoleTheme, RoleThemeKey, theme } from '@/src/constants/theme';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
 interface AppInputProps extends Omit<TextInputProps, 'style' | 'role'> {
   label?: string;
@@ -10,10 +11,15 @@ interface AppInputProps extends Omit<TextInputProps, 'style' | 'role'> {
 }
 
 export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput(
-  { label, role = 'default', style, ...props },
+  { label, role = 'default', style, onBlur, onFocus, ...props },
   ref
 ) {
+  const [focused, setFocused] = useState(false);
+  const { colors } = usePreferences();
   const roleTheme = getRoleTheme(role);
+  const fillColor = role === 'admin' ? roleTheme.surface : colors.surface;
+  const borderColor = focused ? roleTheme.primary : colors.border;
+
   return (
     <View style={styles.container}>
       {label ? (
@@ -23,9 +29,26 @@ export const AppInput = forwardRef<TextInput, AppInputProps>(function AppInput(
       ) : null}
       <TextInput
         ref={ref}
-        placeholderTextColor={theme.colors.textMuted}
-        selectionColor={roleTheme.primary}
-        style={[styles.input, { backgroundColor: roleTheme.soft }, style]}
+        placeholderTextColor={colors.textMuted}
+        selectionColor={colors.primary}
+        onBlur={(event) => {
+          setFocused(false);
+          onBlur?.(event);
+        }}
+        onFocus={(event) => {
+          setFocused(true);
+          onFocus?.(event);
+        }}
+        style={[
+          styles.input,
+          {
+            backgroundColor: fillColor,
+            borderColor,
+            color: colors.typographyColor,
+          },
+          focused && styles.inputFocused,
+          style,
+        ]}
         {...props}
       />
     </View>
@@ -37,10 +60,14 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   input: {
-    height: 52,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceSoft,
-    paddingHorizontal: theme.spacing.md,
+    minHeight: 56,
+    borderRadius: theme.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: theme.spacing.lg,
     ...theme.typography.variants.body,
+    ...theme.shadows.control,
+  },
+  inputFocused: {
+    shadowOpacity: 0.09,
   },
 });

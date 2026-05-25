@@ -4,6 +4,7 @@ import { AppAvatar } from '@/src/components/AppAvatar';
 import { AppIcon, type AppIconName } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
 import { getRoleTheme, RoleThemeKey, theme } from '@/src/constants/theme';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
 interface AppHeaderProps {
   title: string;
@@ -26,13 +27,19 @@ export function AppHeader({
   avatarName,
   style,
 }: AppHeaderProps) {
+  const { colors } = usePreferences();
   const roleTheme = getRoleTheme(role);
+  const backgroundColor = role === 'admin' ? roleTheme.background : colors.background;
+  const iconButtonStyle = {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  };
 
   return (
-    <View style={[styles.header, { backgroundColor: roleTheme.background }, style]}>
+    <View style={[styles.header, { backgroundColor }, style]}>
       {showBack ? (
-        <Pressable style={styles.iconButton} onPress={() => router.back()} hitSlop={12}>
-          <AppIcon name="ChevronLeft" color={roleTheme.primary} />
+        <Pressable style={[styles.iconButton, iconButtonStyle]} onPress={() => router.back()} hitSlop={12}>
+          <AppIcon name="ChevronLeft" size={22} color={colors.primary} />
         </Pressable>
       ) : null}
 
@@ -42,13 +49,13 @@ export function AppHeader({
             {subtitle}
           </AppText>
         ) : null}
-        <AppText variant="h1" weight="bold" style={{ color: roleTheme.text }} numberOfLines={1}>
+        <AppText variant="h1" weight="bold" style={[styles.title, { color: roleTheme.text }]} numberOfLines={1}>
           {title}
         </AppText>
       </View>
 
       {actionIcon && onActionPress ? (
-        <Pressable style={styles.iconButton} onPress={onActionPress} hitSlop={12}>
+        <Pressable style={[styles.iconButton, iconButtonStyle]} onPress={onActionPress} hitSlop={12}>
           <AppIcon name={actionIcon} color={roleTheme.primary} />
         </Pressable>
       ) : avatarName ? (
@@ -63,9 +70,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
   },
   copy: {
     flex: 1,
@@ -73,12 +80,16 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   iconButton: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: theme.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.surface,
-    ...theme.shadows.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    ...theme.shadows.control,
+  },
+  title: {
+    letterSpacing: 0,
   },
 });
