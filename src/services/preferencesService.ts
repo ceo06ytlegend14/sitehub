@@ -3,19 +3,19 @@ import { UiPreferences } from '@/src/types/models';
 
 const PREFERENCE_KEY = 'ui_preferences_v1';
 
-const defaultPreferences: UiPreferences = {
+export const defaultUiPreferences: UiPreferences = {
   language: 'en',
-  theme: 'mint',
+  theme: 'vibrant_pink',
 };
 
 export async function getUiPreferences(): Promise<UiPreferences> {
-  const raw = await AsyncStorage.getItem(PREFERENCE_KEY);
-  if (!raw) return defaultPreferences;
-
   try {
-    return { ...defaultPreferences, ...(JSON.parse(raw) as Partial<UiPreferences>) };
+    const raw = await AsyncStorage.getItem(PREFERENCE_KEY);
+    if (!raw) return defaultUiPreferences;
+
+    return { ...defaultUiPreferences, ...(JSON.parse(raw) as Partial<UiPreferences>) };
   } catch {
-    return defaultPreferences;
+    return defaultUiPreferences;
   }
 }
 
@@ -23,3 +23,6 @@ export async function setUiPreferences(preferences: UiPreferences) {
   await AsyncStorage.setItem(PREFERENCE_KEY, JSON.stringify(preferences));
 }
 
+export async function resetUiPreferences() {
+  await AsyncStorage.removeItem(PREFERENCE_KEY);
+}

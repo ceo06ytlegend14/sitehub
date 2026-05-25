@@ -3,7 +3,7 @@ export const firebaseCollections = {
   orders: 'orders',
   payouts: 'payouts',
   printerJobs: 'printer_jobs',
-  bioPages: 'bio_pages',
   nfcCards: 'nfc_cards',
+  salaryRecords: 'salary_records',
+  bioPages: 'bio_pages',
 } as const;
-

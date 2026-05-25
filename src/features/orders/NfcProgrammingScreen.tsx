@@ -7,7 +7,7 @@ import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { AppText } from '@/src/components/AppText';
 import { theme } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/useAuth';
-import { programNfcCardForJob, updatePrinterJob } from '@/src/services/firestoreService';
+import { saveNfcWrite, updatePrinterJob } from '@/src/services/firestoreService';
 
 export function NfcProgrammingScreen() {
   const { user } = useAuth();
@@ -25,16 +25,23 @@ export function NfcProgrammingScreen() {
 
     setIsSubmitting(true);
     try {
-      await programNfcCardForJob({
-        jobId: jobId.trim(),
+      const profileUrl = `https://biocloud.app/c/${cardCode.trim()}`;
+      await saveNfcWrite({
+        chipUID: cardCode.trim(),
+        profileUrl,
+        orderId: jobId.trim(),
         cardCode: cardCode.trim(),
-        programmedBy: user.id,
+        writtenBy: user.id,
       });
-      await updatePrinterJob(jobId.trim(), 'qa_capture', notes.trim() || 'NFC programmed');
-      setJobId('');
-      setCardCode('');
-      setNotes('');
-      Alert.alert('NFC programmed', 'Card programming is saved and moved to QA stage.');
+      try {
+        await updatePrinterJob(jobId.trim(), 'printing', undefined, user.id);
+      } catch {
+        // Job may already be past printing.
+      }
+      await updatePrinterJob(jobId.trim(), 'nfc_writing', undefined, user.id);
+      await updatePrinterJob(jobId.trim(), 'nfc_verification', { notes: notes.trim() || undefined }, user.id);
+      setJobId(''); setCardCode(''); setNotes('');
+      Alert.alert('NFC programmed', 'Card programming saved and moved to verification.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to program this card.';
       Alert.alert('Programming failed', message);
@@ -44,18 +51,18 @@ export function NfcProgrammingScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer role="printer">
       <AppText variant="h1">NFC Programming</AppText>
       <AppText variant="body" tone="muted">
         Program chip details and move the job to QA.
       </AppText>
 
-      <AppCard>
+      <AppCard role="printer">
         <View style={styles.form}>
-          <AppInput label="Printer job ID" value={jobId} onChangeText={setJobId} placeholder="job_1234" />
-          <AppInput label="NFC card code" value={cardCode} onChangeText={setCardCode} placeholder="NFC-ABCD-29" />
-          <AppInput label="Notes" value={notes} onChangeText={setNotes} placeholder="Optional programming note" />
-          <AppButton label="Save Programming" loading={isSubmitting} onPress={handleProgram} />
+          <AppInput role="printer" label="Printer job ID" value={jobId} onChangeText={setJobId} placeholder="job_1234" />
+          <AppInput role="printer" label="NFC card code" value={cardCode} onChangeText={setCardCode} placeholder="NFC-ABCD-29" />
+          <AppInput role="printer" label="Notes" value={notes} onChangeText={setNotes} placeholder="Optional programming note" />
+          <AppButton role="printer" iconName="Nfc" label="Save Programming" loading={isSubmitting} onPress={handleProgram} />
         </View>
       </AppCard>
     </ScreenContainer>
@@ -67,4 +74,3 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
 });
-

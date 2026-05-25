@@ -5,49 +5,140 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function userPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
     function userExists() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isSignedIn() && exists(userPath());
+    }
+
+    function userDoc() {
+      return get(userPath()).data;
+    }
+
+    function role() {
+      return userExists() ? userDoc().role : 'guest';
     }
 
     function isAdmin() {
-      return isSignedIn()
-        && userExists()
-        && userDoc().role in ['admin', 'super_admin'];
+      return role() in ['admin', 'super_admin'];
     }
 
-    function isActiveUser() {
-      return isSignedIn() && userExists() && userDoc().isActive != false;
+    function isSales() {
+      return role() in ['sales', 'sales_rep'];
+    }
+
+    function isPrinter() {
+      return role() in ['printer', 'printer_staff'];
+    }
+
+    function isCustomer() {
+      return role() in ['customer', 'user'];
+    }
+
+    function sameBranch(data) {
+      return !('branch' in data)
+        || !('branch' in userDoc())
+        || data.branch == ''
+        || userDoc().branch == data.branch;
+    }
+
+    function onlyChanged(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    function validOrderCardStatus() {
+      return !('cardStatus' in request.resource.data)
+        || request.resource.data.cardStatus in ['active', 'frozen', 'closed'];
     }
 
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create: if isSignedIn()
-        && request.auth.uid == userId
-        && request.resource.data.role in ['customer', 'sales', 'printer', 'guest', 'admin', 'super_admin'];
+      allow create: if isSignedIn() && (
+        (request.auth.uid == userId
+          && request.resource.data.role in ['customer', 'sales', 'printer'])
+        || isAdmin()
+      );
       allow update: if isSignedIn() && (
         (request.auth.uid == userId
-          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+          && onlyChanged(['displayName', 'phone', 'language', 'updatedAt', 'updatedBy']))
         || isAdmin()
       );
       allow delete: if isAdmin();
     }
 
     match /orders/{orderId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read: if isSignedIn() && (
+        isAdmin()
+        || (isSales() && resource.data.assignedSalesman == request.auth.uid)
+        || (isCustomer() && resource.data.createdBy == request.auth.uid)
+        || (isPrinter() && sameBranch(resource.data))
+      );
+      allow create: if isSignedIn() && (
+        isAdmin()
+        || (isSales()
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.assignedSalesman == request.auth.uid)
+      );
+      allow update: if isSignedIn() && (
+        isAdmin()
+        || (isSales()
+          && resource.data.assignedSalesman == request.auth.uid
+          && validOrderCardStatus()
+          && onlyChanged([
+            'customerName', 'phone', 'telegram', 'whatsapp', 'email', 'company',
+            'jobTitle', 'deliveryAddress', 'productType', 'quantity', 'cardDesign',
+            'nfcEnabled', 'nfcTargetUrl', 'qrPrinted', 'notes', 'paymentStatus',
+            'paymentMethod', 'depositAmount', 'dueDate', 'priority', 'cardStatus',
+            'freezeReason', 'frozenAt', 'frozenBy', 'closedAt', 'closedBy',
+            'updatedAt', 'updatedBy'
+          ]))
+        || (isPrinter()
+          && sameBranch(resource.data)
+          && onlyChanged(['status', 'updatedAt', 'updatedBy']))
+      );
       allow delete: if isAdmin();
     }
 
-    match /printerJobs/{jobId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+    match /printer_jobs/{jobId} {
+      allow read: if isSignedIn() && (
+        isAdmin()
+        || (isPrinter() && (resource.data.printerId == '' || resource.data.printerId == request.auth.uid) && sameBranch(resource.data))
+      );
+      allow create: if isSignedIn() && (
+        isAdmin()
+        || (isSales() && request.resource.data.createdBy == request.auth.uid)
+      );
+      allow update: if isSignedIn() && (
+        isAdmin()
+        || (isPrinter()
+          && (resource.data.printerId == '' || resource.data.printerId == request.auth.uid)
+          && sameBranch(resource.data)
+          && onlyChanged(['stage', 'printerId', 'cardsPrinted', 'failedCards', 'reprintedCards', 'failedCardsApproved', 'notes', 'qaVideoUrl', 'salaryStatus', 'updatedAt', 'updatedBy']))
+      );
       allow delete: if isAdmin();
+    }
+
+    match /nfc_cards/{cardCode} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (
+        isAdmin()
+        || isPrinter()
+        || request.resource.data.writtenBy == request.auth.uid
+      );
+      allow update: if isSignedIn() && (
+        isAdmin()
+        || isPrinter()
+        || request.resource.data.writtenBy == request.auth.uid
+        || resource.data.writtenBy == request.auth.uid
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /salary_records/{recordId} {
+      allow read: if isSignedIn() && (resource.data.printerId == request.auth.uid || isAdmin());
+      allow create, update, delete: if isAdmin();
     }
 
     match /payouts/{payoutId} {
@@ -55,66 +146,62 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    match /bioPages/{pageId} {
+    match /bio_pages/{pageId} {
       allow read: if true;
-      allow write: if isSignedIn() && request.auth.uid == pageId;
+      allow write: if isSignedIn() && (request.auth.uid == pageId || isAdmin());
     }
 
-    match /nfcCards/{cardCode} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && (
+        isAdmin()
+        || resource.data.userId == request.auth.uid
+        || resource.data.adminId == request.auth.uid
+      );
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        isAdmin()
+        || resource.data.userId == request.auth.uid
+        || resource.data.adminId == request.auth.uid
+      );
     }
 
     match /groups/{groupId} {
       allow read: if isSignedIn();
-      allow create: if isAdmin()
-        && request.resource.data.adminId == request.auth.uid;
-      allow update, delete: if isAdmin()
-        && resource.data.adminId == request.auth.uid;
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin() && resource.data.adminId == request.auth.uid;
     }
 
     match /group_memberships/{membershipId} {
-      allow read: if isSignedIn();
-      allow create, update: if isAdmin();
-      allow delete: if isAdmin();
+      allow read: if isSignedIn() && (
+        isAdmin()
+        || resource.data.userId == request.auth.uid
+        || resource.data.approvedBy == request.auth.uid
+      );
+      allow create, update, delete: if isAdmin();
     }
 
     match /join_requests/{requestId} {
       allow read: if isSignedIn() && (
-        resource.data.userId == request.auth.uid
+        isAdmin()
+        || resource.data.userId == request.auth.uid
         || resource.data.adminId == request.auth.uid
       );
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.status == 'pending';
-      allow update: if isAdmin()
-        && resource.data.adminId == request.auth.uid;
-      allow delete: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
     }
 
     match /qr_sessions/{sessionId} {
       allow read: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     match /attendance_records/{recordId} {
       allow read: if isSignedIn() && (
-        resource.data.userId == request.auth.uid || isAdmin()
+        isAdmin()
+        || resource.data.userId == request.auth.uid
       );
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAdmin();
-    }
-
-    match /notifications/{notificationId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (
-        (resource.data.targetAudience == 'user' && resource.data.userId == request.auth.uid)
-        || (resource.data.targetAudience != 'user' && resource.data.adminId == request.auth.uid)
-      );
     }
   }
 }

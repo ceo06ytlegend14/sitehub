@@ -1,8 +1,13 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { useFonts } from 'expo-font';
+import {
+  MavenPro_400Regular,
+  MavenPro_500Medium,
+  MavenPro_600SemiBold,
+  MavenPro_700Bold,
+} from '@expo-google-fonts/maven-pro';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/src/providers/AuthProvider';
 import { PreferencesProvider } from '@/src/providers/PreferencesProvider';
@@ -11,17 +16,17 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    MavenPro_400Regular,
+    MavenPro_500Medium,
+    MavenPro_600SemiBold,
+    MavenPro_700Bold,
   });
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
-  }, [fontError, fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return null;
 
@@ -33,9 +38,11 @@ export default function RootLayout() {
           <Stack.Screen name="auth/login" />
           <Stack.Screen name="auth/register" />
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="new-order" options={{ headerShown: true, title: 'New Order Intake' }} />
-          <Stack.Screen name="nfc-programming" options={{ headerShown: true, title: 'NFC Programming' }} />
-          <Stack.Screen name="qa-video" options={{ headerShown: true, title: 'QA Video Capture' }} />
+          <Stack.Screen name="sales" />
+          <Stack.Screen name="printer" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="new-order" />
+          <Stack.Screen name="order-detail/[orderId]" />
           <Stack.Screen name="activate-card" options={{ headerShown: true, title: 'Activate Card' }} />
           <Stack.Screen name="edit-bio" options={{ headerShown: true, title: 'Edit Bio Page' }} />
           <Stack.Screen name="theme-picker" options={{ headerShown: true, title: 'Pick Theme' }} />

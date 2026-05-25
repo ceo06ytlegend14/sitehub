@@ -20,6 +20,8 @@ const demoAccounts = [
   { email: 'sales@demo.com',    password: 'demo1234', displayName: 'Demo Sales',    role: 'sales' },
   { email: 'printer@demo.com',  password: 'demo1234', displayName: 'Demo Printer',  role: 'printer' },
   { email: 'customer@demo.com', password: 'demo1234', displayName: 'Demo Customer', role: 'customer' },
+  { email: 'admin@demo.com',    password: 'demo1234', displayName: 'Demo Admin',    role: 'admin' },
+  { email: 'super@demo.com',    password: 'demo1234', displayName: 'Super Admin',   role: 'super_admin' },
 ];
 
 async function createAccount({ email, password, displayName, role }) {
@@ -52,4 +54,5 @@ console.log('\nDone! Credentials:');
 console.log('  sales@demo.com    / demo1234  (Sales role)');
 console.log('  printer@demo.com  / demo1234  (Printer role)');
 console.log('  customer@demo.com / demo1234  (Customer role)');
+console.log('  super@demo.com    / demo1234  (Super Admin role)');
 process.exit(0);

@@ -2,90 +2,163 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { AppButton } from '@/src/components/AppButton';
 import { AppCard } from '@/src/components/AppCard';
+import { AppIcon } from '@/src/components/AppIcon';
 import { MetricCard } from '@/src/components/MetricCard';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { AppText } from '@/src/components/AppText';
 import { theme } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/useAuth';
-import { useBioPage } from '@/src/hooks/useBioPage';
 import { useOrders } from '@/src/hooks/useOrders';
 import { usePrinterJobs } from '@/src/hooks/usePrinterJobs';
 import { useRoleFlags } from '@/src/hooks/useRoleFlags';
 
 export function HomeScreen() {
   const { user } = useAuth();
-  const { role, isSales, isPrinter, isCustomer } = useRoleFlags();
-  const jobs = usePrinterJobs();
-  const { orders } = useOrders(role, user?.id ?? '');
-  const { bioPage } = useBioPage(user?.id ?? '');
+  const { role, isSales, isPrinter, isCustomer, isGuest } = useRoleFlags();
+  const { jobs } = usePrinterJobs();
+  const { orders, isLoading: ordersLoading, error: ordersError, refresh } = useOrders(role, user?.id ?? '');
 
-  const queueCount = jobs.filter((job) => job.stage !== 'done').length;
+  const queueCount = isSales
+    ? orders.filter((order) => order.status !== 'delivered').length
+    : jobs.filter((job) => job.stage !== 'done').length;
   const completedToday = jobs.filter((job) => job.stage === 'done').length;
-  const pendingOrders = orders.filter((order) => order.status !== 'completed').length;
+  const pendingOrders = orders.filter((order) => order.status !== 'delivered' && (order.cardStatus ?? 'active') !== 'closed').length;
+
+  const dashboardLabel = isSales
+    ? 'Sales Dashboard'
+    : isPrinter
+      ? 'Printer Dashboard'
+      : isGuest
+        ? 'Guest Preview'
+        : 'Customer Dashboard';
 
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <AppText variant="h1">Hello, {user?.displayName ?? 'there'}</AppText>
-        <AppText variant="body" tone="muted">
-          {isCustomer ? 'Customer Bio Cloud' : 'Internal App'} dashboard
+        <AppText variant="caption" tone="muted" style={styles.greeting}>
+          {dashboardLabel}
         </AppText>
+        <AppText variant="h1">Hello, {user?.displayName ?? 'there'}</AppText>
       </View>
+
+      {ordersError ? (
+        <AppCard>
+          <AppText variant="body" tone="muted">{ordersError}</AppText>
+          <AppButton label="Retry" variant="ghost" onPress={refresh} />
+        </AppCard>
+      ) : null}
+
+      {(isGuest || isCustomer) ? (
+        <AppCard style={styles.actionCard}>
+          <View style={styles.actionCardInner}>
+            <View style={styles.actionIcon}>
+              <AppIcon name="Nfc" size={22} color={theme.colors.primary} />
+            </View>
+            <View style={styles.actionText}>
+              <AppText variant="h2">{isGuest ? 'Preview Mode' : 'Bio Card'}</AppText>
+              <AppText variant="caption" tone="muted">
+                {isGuest ? 'Sign in to create orders and manage cards.' : 'Manage your public bio and card activation.'}
+              </AppText>
+            </View>
+          </View>
+          <AppButton
+            label={isGuest ? 'Sign In' : 'Edit Bio Page'}
+            onPress={() => router.push(isGuest ? '/auth/login' : '/edit-bio')}
+          />
+        </AppCard>
+      ) : null}
 
       {isSales ? (
         <>
-          <MetricCard label="Open Orders" value={`${pendingOrders}`} highlight="Sales" />
-          <MetricCard label="Ready For Print" value={`${queueCount}`} />
-          <AppCard>
-            <AppText variant="h2">New Order Intake</AppText>
-            <AppText variant="body" tone="muted" style={styles.blockText}>
-              Capture customer request and push it to printer queue instantly.
-            </AppText>
-            <AppButton label="Create New Order" onPress={() => router.push('/new-order')} />
+          <View style={styles.metricsRow}>
+            <MetricCard label="Open Orders" value={ordersLoading ? '...' : `${pendingOrders}`} highlight="Sales" />
+            <MetricCard label="In Queue" value={`${queueCount}`} />
+          </View>
+
+          <AppCard style={styles.actionCard}>
+            <View style={styles.actionCardInner}>
+              <View style={styles.actionIcon}>
+                <AppIcon name="ClipboardList" size={22} color={theme.colors.primary} />
+              </View>
+              <View style={styles.actionText}>
+                <AppText variant="h2">New Order</AppText>
+                <AppText variant="caption" tone="muted">
+                  Capture customer request instantly
+                </AppText>
+              </View>
+            </View>
+            <AppButton label="Create Order" onPress={() => router.push('/new-order')} />
           </AppCard>
-          <AppCard>
-            <AppText variant="h2">My Payouts</AppText>
-            <AppText variant="body" tone="muted" style={styles.blockText}>
-              Track commissions and payout status by period.
-            </AppText>
-            <AppButton label="Open Payouts" variant="secondary" onPress={() => router.push('/(tabs)/profile')} />
+
+          <AppCard style={styles.actionCard}>
+            <View style={styles.actionCardInner}>
+              <View style={[styles.actionIcon, styles.actionIconSecondary]}>
+                <AppIcon name="Wallet" size={22} color={theme.colors.secondary} />
+              </View>
+              <View style={styles.actionText}>
+                <AppText variant="h2">My Payouts</AppText>
+                <AppText variant="caption" tone="muted">
+                  Commission and payout history
+                </AppText>
+              </View>
+            </View>
+            <AppButton label="View Payouts" variant="ghost" onPress={() => router.push('/sales/payouts')} />
           </AppCard>
         </>
       ) : null}
 
       {isPrinter ? (
         <>
-          <MetricCard label="Printer Queue" value={`${queueCount}`} highlight="Live" />
-          <MetricCard label="QA Captured" value={`${completedToday}`} />
-          <AppCard>
-            <AppText variant="h2">Printer Job Queue</AppText>
-            <AppText variant="body" tone="muted" style={styles.blockText}>
-              Move jobs from queue to NFC programming and QA capture.
-            </AppText>
-            <AppButton label="Open Queue" onPress={() => router.push('/(tabs)/attendance')} />
-          </AppCard>
-          <View style={styles.row}>
-            <AppButton label="NFC Programming" fullWidth={false} style={styles.halfButton} onPress={() => router.push('/nfc-programming')} />
-            <AppButton label="QA Video" fullWidth={false} variant="secondary" style={styles.halfButton} onPress={() => router.push('/qa-video')} />
+          <View style={styles.metricsRow}>
+            <MetricCard label="In Queue" value={`${queueCount}`} highlight="Live" />
+            <MetricCard label="Done Today" value={`${completedToday}`} />
           </View>
-        </>
-      ) : null}
 
-      {isCustomer ? (
-        <>
-          <MetricCard label="Card Status" value={bioPage ? 'Active' : 'Not Linked'} highlight="Customer" />
-          <MetricCard label="Public URL" value={bioPage ? `/${bioPage.slug}` : 'Not set'} />
-          <AppCard>
-            <AppText variant="h2">Activate Card</AppText>
-            <AppText variant="body" tone="muted" style={styles.blockText}>
-              Link your physical NFC card to your public bio profile.
-            </AppText>
-            <AppButton label="Activate Card" onPress={() => router.push('/activate-card')} />
+          <AppCard style={styles.actionCard}>
+            <View style={styles.actionCardInner}>
+              <View style={styles.actionIcon}>
+                <AppIcon name="Printer" size={22} color={theme.colors.primary} />
+              </View>
+              <View style={styles.actionText}>
+                <AppText variant="h2">Printer Queue</AppText>
+                <AppText variant="caption" tone="muted">
+                  Manage NFC programming pipeline
+                </AppText>
+              </View>
+            </View>
+            <AppButton label="Open Queue" onPress={() => router.push('/printer/queue')} />
           </AppCard>
+
           <View style={styles.row}>
-            <AppButton label="Pick Theme" fullWidth={false} style={styles.halfButton} onPress={() => router.push('/theme-picker')} />
-            <AppButton label="Edit Bio Page" fullWidth={false} variant="secondary" style={styles.halfButton} onPress={() => router.push('/edit-bio')} />
+            <AppButton
+              label="NFC Write"
+              fullWidth={false}
+              style={styles.halfButton}
+              onPress={() => router.push('/printer/scan')}
+            />
+            <AppButton
+              label="QA Video"
+              fullWidth={false}
+              variant="secondary"
+              style={styles.halfButton}
+              onPress={() => router.push('/printer/queue')}
+            />
           </View>
+
+          <AppCard style={styles.actionCard}>
+            <View style={styles.actionCardInner}>
+              <View style={[styles.actionIcon, styles.actionIconAccent]}>
+                <AppIcon name="BadgeDollarSign" size={22} color={theme.colors.accent} />
+              </View>
+              <View style={styles.actionText}>
+                <AppText variant="h2">My Salary</AppText>
+                <AppText variant="caption" tone="muted">
+                  QA throughput and earnings
+                </AppText>
+              </View>
+            </View>
+            <AppButton label="View Salary" variant="ghost" onPress={() => router.push('/printer/wages')} />
+          </AppCard>
         </>
       ) : null}
     </ScreenContainer>
@@ -94,11 +167,42 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    gap: theme.spacing.xs,
+    gap: theme.spacing.xxs,
+    marginBottom: theme.spacing.xs,
   },
-  blockText: {
-    marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.md,
+  greeting: {
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  actionCard: {
+    gap: theme.spacing.md,
+  },
+  actionCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionIconSecondary: {
+    backgroundColor: '#FFF0EB',
+  },
+  actionIconAccent: {
+    backgroundColor: '#EDFAF4',
+  },
+  actionText: {
+    flex: 1,
+    gap: 2,
   },
   row: {
     flexDirection: 'row',

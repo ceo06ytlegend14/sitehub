@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppButton } from '@/src/components/AppButton';
@@ -9,29 +9,39 @@ import { AppText } from '@/src/components/AppText';
 import { roleOptions } from '@/src/constants/options';
 import { theme } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/useAuth';
+import { getAuthErrorMessage } from '@/src/services/authService';
 import { UserRole } from '@/src/types/models';
+import { getDashboardRoute } from '@/src/utils/authFlow';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function RegisterScreen() {
-  const { signUp } = useAuth();
+  const { user, isLoading, signUp } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('customer');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace(getDashboardRoute(user));
+    }
+  }, [isLoading, user]);
+
   async function handleRegister() {
-    if (!displayName.trim() || !email.trim() || password.length < 6) {
-      Alert.alert('Missing details', 'Name, valid email, and 6+ char password are required.');
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!displayName.trim() || !EMAIL_PATTERN.test(normalizedEmail) || password.length < 6) {
+      Alert.alert('Missing details', 'Name, valid email, and 6+ character password are required.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await signUp({ displayName, email, password, role });
-      router.replace('/(tabs)');
+      const registeredUser = await signUp({ displayName, email: normalizedEmail, password, role });
+      router.replace(getDashboardRoute(registeredUser));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to create account right now.';
-      Alert.alert('Sign up failed', message);
+      Alert.alert('Sign up failed', getAuthErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -76,6 +86,7 @@ export function RegisterScreen() {
                   key={option.value}
                   style={[styles.roleOption, role === option.value && styles.roleOptionActive]}
                   onPress={() => setRole(option.value)}
+                  disabled={isSubmitting}
                 >
                   <AppText variant="caption" tone={role === option.value ? 'inverse' : 'primary'}>
                     {option.label}
@@ -85,7 +96,12 @@ export function RegisterScreen() {
             </View>
           </View>
 
-          <AppButton label="Create Account" loading={isSubmitting} onPress={handleRegister} />
+          <AppButton
+            label="Create Account"
+            loading={isSubmitting}
+            disabled={isLoading}
+            onPress={handleRegister}
+          />
         </View>
       </AppCard>
 
@@ -93,7 +109,7 @@ export function RegisterScreen() {
         <AppText variant="caption" tone="muted">
           Already have an account?
         </AppText>
-        <Pressable onPress={() => router.replace('/auth/login')}>
+        <Pressable onPress={() => router.replace('/auth/login')} disabled={isSubmitting}>
           <AppText variant="caption">Sign in</AppText>
         </Pressable>
       </View>

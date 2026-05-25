@@ -12,38 +12,49 @@ interface MetricCardProps {
 export function MetricCard({ label, value, highlight }: MetricCardProps) {
   return (
     <AppCard style={styles.card}>
-      <AppText variant="caption" tone="muted">
+      <AppText variant="caption" tone="muted" style={styles.label}>
         {label}
       </AppText>
-      <View style={styles.row}>
-        <AppText variant="h2">{value}</AppText>
-        {highlight ? (
-          <View style={styles.badge}>
-            <AppText variant="caption" tone="inverse">
-              {highlight}
-            </AppText>
-          </View>
-        ) : null}
-      </View>
+      <AppText variant="h1" style={styles.value}>
+        {value}
+      </AppText>
+      {highlight ? (
+        <View style={styles.badge}>
+          <AppText variant="caption" tone="inverse" style={styles.badgeText}>
+            {highlight}
+          </AppText>
+        </View>
+      ) : null}
     </AppCard>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    flex: 1,
     paddingVertical: theme.spacing.md,
+    gap: theme.spacing.xxs,
   },
-  row: {
-    marginTop: theme.spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  label: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontSize: 10,
+  },
+  value: {
+    fontSize: 36,
+    lineHeight: 44,
   },
   badge: {
+    alignSelf: 'flex-start',
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.accent,
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xxs,
+    paddingVertical: 2,
+    marginTop: theme.spacing.xxs,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
 

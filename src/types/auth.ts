@@ -13,9 +13,9 @@ export interface RegisterInput extends LoginInput {
 export interface AuthContextValue {
   user: AppUser | null;
   isLoading: boolean;
-  signIn: (input: LoginInput) => Promise<void>;
-  signUp: (input: RegisterInput) => Promise<void>;
+  error: string | null;
+  signIn: (input: LoginInput) => Promise<AppUser>;
+  signUp: (input: RegisterInput) => Promise<AppUser>;
   signInAsGuest: () => Promise<void>;
   signOutUser: () => Promise<void>;
 }
-

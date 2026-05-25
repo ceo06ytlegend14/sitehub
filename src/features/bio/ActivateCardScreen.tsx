@@ -7,29 +7,33 @@ import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { AppText } from '@/src/components/AppText';
 import { theme } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/useAuth';
-import { useBioPage } from '@/src/hooks/useBioPage';
-import { activateNfcCard, linkCardToBio } from '@/src/services/firestoreService';
+// Fix: use saveNfcWrite instead of removed activateNfcCard/linkCardToBio
+import { saveNfcWrite, updateNfcStatus } from '@/src/services/firestoreService';
 
 export function ActivateCardScreen() {
   const { user } = useAuth();
-  const { bioPage } = useBioPage(user?.id ?? '');
   const [cardCode, setCardCode] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleActivate() {
     if (!user) return;
     if (!cardCode.trim()) {
-      Alert.alert('Card code required', 'Enter the NFC card code printed on the card.');
+      Alert.alert('Card code required', 'Enter the activation code from your card or receipt.');
       return;
     }
 
     setIsSaving(true);
     try {
-      await activateNfcCard(user, cardCode.trim());
-      if (bioPage?.slug) {
-        await linkCardToBio(cardCode.trim(), bioPage.slug);
-      }
-      Alert.alert('Card activated', 'Your card is now linked to your account.');
+      const profileUrl = `https://biocloud.app/c/${cardCode.trim()}`;
+      await saveNfcWrite({
+        chipUID: cardCode.trim(),
+        profileUrl,
+        orderId: '',
+        cardCode: cardCode.trim(),
+        writtenBy: user.id,
+      });
+      await updateNfcStatus(cardCode.trim(), 'verified');
+      Alert.alert('Card activated ✅', 'Your NFC card is now linked to your account.');
       setCardCode('');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to activate card.';
@@ -64,4 +68,3 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
 });
-

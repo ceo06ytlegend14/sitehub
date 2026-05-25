@@ -7,7 +7,11 @@ export function useBioPage(userId: string) {
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!userId || userId === 'guest') return;
+    if (!userId || userId === 'guest') {
+      setBioPage(null);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const result = await getBioPage(userId);
@@ -33,4 +37,3 @@ export function useBioPage(userId: string) {
 
   return { bioPage, isLoading, refresh, saveBioPage };
 }
-

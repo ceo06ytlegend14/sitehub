@@ -40,7 +40,7 @@ export function QaVideoCaptureScreen() {
     setIsSaving(true);
     try {
       await saveQaVideo(jobId.trim(), videoUri);
-      await updatePrinterJob(jobId.trim(), 'done', 'QA video captured');
+      await updatePrinterJob(jobId.trim(), 'done', { notes: 'QA video captured' });
       Alert.alert('Saved', 'QA video log has been attached to the job.');
       setJobId('');
       setVideoUri('');
@@ -53,16 +53,16 @@ export function QaVideoCaptureScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer role="printer">
       <AppText variant="h1">QA Video Capture</AppText>
       <AppText variant="body" tone="muted">
         Record final proof video before completing the print job.
       </AppText>
 
-      <AppCard>
+      <AppCard role="printer">
         <View style={styles.form}>
-          <AppInput label="Printer job ID" value={jobId} onChangeText={setJobId} placeholder="job_1234" />
-          <AppButton label="Record QA Video" onPress={handleCapture} />
+          <AppInput role="printer" label="Printer job ID" value={jobId} onChangeText={setJobId} placeholder="job_1234" />
+          <AppButton role="printer" iconName="FileVideo" label="Record QA Video" onPress={handleCapture} />
           {videoUri ? (
             <AppText variant="caption" tone="muted">
               Captured: {videoUri.split('/').slice(-1)[0]}
@@ -72,7 +72,7 @@ export function QaVideoCaptureScreen() {
               No video captured yet.
             </AppText>
           )}
-          <AppButton label="Attach To Job" variant="secondary" loading={isSaving} onPress={handleSave} />
+          <AppButton role="printer" iconName="ShieldCheck" label="Attach To Job" variant="secondary" loading={isSaving} onPress={handleSave} />
         </View>
       </AppCard>
     </ScreenContainer>
@@ -84,4 +84,3 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
 });
-

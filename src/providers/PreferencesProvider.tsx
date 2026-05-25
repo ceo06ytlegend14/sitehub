@@ -1,22 +1,23 @@
 import { PropsWithChildren, createContext, useEffect, useMemo, useState } from 'react';
-import { getUiPreferences, setUiPreferences } from '@/src/services/preferencesService';
+import {
+  defaultUiPreferences,
+  getUiPreferences,
+  resetUiPreferences,
+  setUiPreferences,
+} from '@/src/services/preferencesService';
 import { UiPreferences } from '@/src/types/models';
 
 interface PreferencesContextValue {
   preferences: UiPreferences;
   isReady: boolean;
   updatePreferences: (next: Partial<UiPreferences>) => Promise<void>;
+  resetPreferences: () => Promise<void>;
 }
-
-const defaultPreferences: UiPreferences = {
-  language: 'en',
-  theme: 'mint',
-};
 
 const PreferencesContext = createContext<PreferencesContextValue | undefined>(undefined);
 
 export function PreferencesProvider({ children }: PropsWithChildren) {
-  const [preferences, setPreferences] = useState<UiPreferences>(defaultPreferences);
+  const [preferences, setPreferences] = useState<UiPreferences>(defaultUiPreferences);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -30,9 +31,25 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
       preferences,
       isReady,
       async updatePreferences(next) {
+        const previous = preferences;
         const updated = { ...preferences, ...next };
         setPreferences(updated);
-        await setUiPreferences(updated);
+        try {
+          await setUiPreferences(updated);
+        } catch (error) {
+          setPreferences(previous);
+          throw error;
+        }
+      },
+      async resetPreferences() {
+        const previous = preferences;
+        setPreferences(defaultUiPreferences);
+        try {
+          await resetUiPreferences();
+        } catch (error) {
+          setPreferences(previous);
+          throw error;
+        }
       },
     }),
     [isReady, preferences]
@@ -42,4 +59,3 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
 }
 
 export { PreferencesContext };
-
