@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, doc, getDocs, orderBy, query, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/src/services/firebaseClient';
-import { AppIcon } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
+import { SettingsGroup, SettingsSection } from '@/src/components/SettingsGroup';
 import { theme } from '@/src/constants/theme';
-
-const adminTheme = theme.roles.admin;
-const NAVY = adminTheme.primary;
-const BG = adminTheme.background;
+import {
+  AdminScreenShell,
+  AdminStatChip,
+  AdminStatChipRow,
+  AdminStatusPill,
+} from '@/src/features/admin/components/AdminScreenShell';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
 interface SalaryRecord {
   id: string;
@@ -35,22 +36,12 @@ interface UserMap {
   [uid: string]: string;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const isPaid = status === 'paid';
-  return (
-    <View style={[badge.wrap, { backgroundColor: isPaid ? '#EDFAF4' : '#FFF3E0' }]}>
-      <AppText style={[badge.text, { color: isPaid ? '#2BC48A' : '#f59e0b' }]}>
-        {status.toUpperCase()}
-      </AppText>
-    </View>
-  );
+function payoutTone(status: string): 'success' | 'warning' {
+  return status === 'paid' ? 'success' : 'warning';
 }
-const badge = StyleSheet.create({
-  wrap: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
-  text: { fontSize: 10, fontWeight: '700' },
-});
 
 export default function SalaryScreen() {
+  const { colors } = usePreferences();
   const [tab, setTab] = useState<'printers' | 'salesmen'>('printers');
   const [salaryRecords, setSalaryRecords] = useState<SalaryRecord[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -127,132 +118,147 @@ export default function SalaryScreen() {
     .reduce((s, p) => s + (p.amount ?? 0), 0);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronLeft" size={22} color="#fff" />
-        </Pressable>
-        <AppText style={styles.headerTitle}>Salary & Commission</AppText>
-      </View>
-
-      {/* Summary */}
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}>
-          <AppText style={[styles.summaryNum, { color: '#f59e0b' }]}>${totalPrinterUnpaid.toFixed(0)}</AppText>
-          <AppText style={styles.summaryLabel}>Printer Unpaid</AppText>
+    <AdminScreenShell
+      title="Salary"
+      subtitle="Admin"
+      scroll={false}
+      headerBottom={
+        <View style={[styles.tabRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {(['printers', 'salesmen'] as const).map((t) => (
+            <Pressable
+              key={t}
+              style={[styles.tab, tab === t && { backgroundColor: colors.primary }]}
+              onPress={() => setTab(t)}
+            >
+              <AppText
+                variant="caption"
+                weight="semibold"
+                style={{ color: tab === t ? '#FFFFFF' : colors.textMuted }}
+              >
+                {t === 'printers' ? 'Printers' : 'Salesmen'}
+              </AppText>
+            </Pressable>
+          ))}
         </View>
-        <View style={styles.summaryCard}>
-          <AppText style={[styles.summaryNum, { color: '#7c3aed' }]}>${totalSalesUnpaid.toFixed(0)}</AppText>
-          <AppText style={styles.summaryLabel}>Sales Unpaid</AppText>
-        </View>
-      </View>
+      }
+    >
+      <AdminStatChipRow>
+        <AdminStatChip label="Printer unpaid" value={`$${totalPrinterUnpaid.toFixed(0)}`} tone="#FF9500" />
+        <AdminStatChip label="Sales unpaid" value={`$${totalSalesUnpaid.toFixed(0)}`} tone="#5856D6" />
+      </AdminStatChipRow>
 
-      {/* Tabs */}
-      <View style={styles.tabRow}>
-        {(['printers', 'salesmen'] as const).map(t => (
-          <Pressable
-            key={t}
-            style={[styles.tab, tab === t && styles.tabActive]}
-            onPress={() => setTab(t)}
-          >
-            <AppText style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === 'printers' ? '🖨 Printers' : '💼 Salesmen'}
-            </AppText>
-          </Pressable>
-        ))}
-      </View>
-
+      <SettingsSection title={tab === 'printers' ? 'Printer payroll' : 'Sales payouts'} compact />
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <AppText style={styles.empty}>Loading…</AppText>
+          <AppText variant="body" tone="muted" style={styles.empty}>
+            Loading…
+          </AppText>
         ) : tab === 'printers' ? (
           salaryRecords.length === 0 ? (
-            <AppText style={styles.empty}>No salary records found.</AppText>
+            <AppText variant="body" tone="muted" style={styles.empty}>
+              No salary records found.
+            </AppText>
           ) : (
-            salaryRecords.map(record => (
-              <View key={record.id} style={styles.card}>
+            <SettingsGroup compact>
+            {salaryRecords.map((record, index) => (
+              <View key={record.id}>
+              <View style={styles.card}>
                 <View style={styles.cardRow}>
                   <View style={styles.cardLeft}>
-                    <AppText style={styles.cardName}>{record.printerName || userMap[record.printerId] || '—'}</AppText>
-                    <AppText style={styles.cardMeta}>Period: {record.period}</AppText>
-                    <AppText style={styles.cardMeta}>
+                    <AppText variant="body" weight="semibold">{record.printerName || userMap[record.printerId] || '—'}</AppText>
+                    <AppText variant="caption" tone="muted">Period: {record.period}</AppText>
+                    <AppText variant="caption" tone="muted">
                       Cards: {record.totalCards ?? 0} total · {record.failedCards ?? 0} failed
                     </AppText>
                   </View>
                   <View style={styles.cardRight}>
-                    <AppText style={styles.cardAmount}>${(record.total ?? 0).toFixed(2)}</AppText>
-                    <StatusBadge status={record.status ?? 'unpaid'} />
+                    <AppText variant="body" weight="bold" style={{ color: colors.primary }}>
+                      ${(record.total ?? 0).toFixed(2)}
+                    </AppText>
+                    <AdminStatusPill label={record.status ?? 'unpaid'} tone={payoutTone(record.status ?? 'unpaid')} />
                   </View>
                 </View>
                 {record.status !== 'paid' && (
                   <Pressable
-                    style={styles.approveBtn}
+                    style={[styles.approveBtn, { backgroundColor: colors.primarySoft }]}
                     onPress={() => approveSalary(record)}
                   >
-                    <AppText style={styles.approveBtnText}>✓ Approve & Mark Paid</AppText>
+                    <AppText variant="caption" weight="semibold" style={{ color: colors.primary }}>
+                      Approve and mark paid
+                    </AppText>
                   </Pressable>
                 )}
               </View>
-            ))
+              {index < salaryRecords.length - 1 ? (
+                <View style={[styles.separator, { backgroundColor: colors.border }]} />
+              ) : null}
+              </View>
+            ))}
+            </SettingsGroup>
           )
         ) : (
           payouts.length === 0 ? (
-            <AppText style={styles.empty}>No payout records found.</AppText>
+            <AppText variant="body" tone="muted" style={styles.empty}>
+              No payout records found.
+            </AppText>
           ) : (
-            payouts.map(payout => (
-              <View key={payout.id} style={styles.card}>
+            <SettingsGroup compact>
+            {payouts.map((payout, index) => (
+              <View key={payout.id}>
+              <View style={styles.card}>
                 <View style={styles.cardRow}>
                   <View style={styles.cardLeft}>
-                    <AppText style={styles.cardName}>{userMap[payout.userId] || payout.userId}</AppText>
-                    <AppText style={styles.cardMeta}>Period: {payout.periodLabel}</AppText>
+                    <AppText variant="body" weight="semibold">{userMap[payout.userId] || payout.userId}</AppText>
+                    <AppText variant="caption" tone="muted">Period: {payout.periodLabel}</AppText>
                   </View>
                   <View style={styles.cardRight}>
-                    <AppText style={styles.cardAmount}>${(payout.amount ?? 0).toFixed(2)}</AppText>
-                    <StatusBadge status={payout.status ?? 'unpaid'} />
+                    <AppText variant="body" weight="bold" style={{ color: colors.primary }}>
+                      ${(payout.amount ?? 0).toFixed(2)}
+                    </AppText>
+                    <AdminStatusPill label={payout.status ?? 'unpaid'} tone={payoutTone(payout.status ?? 'unpaid')} />
                   </View>
                 </View>
                 {payout.status !== 'paid' && (
                   <Pressable
-                    style={styles.approveBtn}
+                    style={[styles.approveBtn, { backgroundColor: colors.primarySoft }]}
                     onPress={() => approvePayout(payout)}
                   >
-                    <AppText style={styles.approveBtnText}>✓ Approve & Mark Paid</AppText>
+                    <AppText variant="caption" weight="semibold" style={{ color: colors.primary }}>
+                      Approve and mark paid
+                    </AppText>
                   </Pressable>
                 )}
               </View>
-            ))
+              {index < payouts.length - 1 ? (
+                <View style={[styles.separator, { backgroundColor: colors.border }]} />
+              ) : null}
+              </View>
+            ))}
+            </SettingsGroup>
           )
         )}
       </ScrollView>
-    </SafeAreaView>
+    </AdminScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
-  header: { backgroundColor: NAVY, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, color: '#fff', fontSize: 18, fontWeight: '700' },
-  summaryRow: { flexDirection: 'row', padding: 12, gap: 10 },
-  summaryCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', gap: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
-  summaryNum: { fontSize: 24, fontWeight: '700' },
-  summaryLabel: { fontSize: 12, color: '#888' },
-  tabRow: { flexDirection: 'row', marginHorizontal: 12, marginBottom: 8, backgroundColor: '#fff', borderRadius: 14, padding: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-  tabActive: { backgroundColor: NAVY },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#888' },
-  tabTextActive: { color: '#fff' },
-  list: { padding: 12, paddingBottom: 40, gap: 10 },
-  empty: { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 15 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  tabRow: {
+    flexDirection: 'row',
+    marginHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 3,
+    gap: 2,
+  },
+  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: theme.radius.sm - 2 },
+  list: { paddingBottom: theme.spacing.xxl },
+  empty: { textAlign: 'center', marginTop: theme.spacing.xl, paddingHorizontal: theme.spacing.md },
+  card: { paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm + 2, gap: 8 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
   cardLeft: { flex: 1, gap: 3 },
-  cardName: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
-  cardMeta: { fontSize: 12, color: '#888' },
   cardRight: { alignItems: 'flex-end', gap: 6 },
-  cardAmount: { fontSize: 18, fontWeight: '700', color: NAVY },
-  approveBtn: { backgroundColor: '#EDFAF4', borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
-  approveBtnText: { fontSize: 13, fontWeight: '700', color: '#2BC48A' },
+  approveBtn: { marginHorizontal: theme.spacing.md, borderRadius: theme.radius.sm, paddingVertical: 8, alignItems: 'center' },
+  separator: { height: StyleSheet.hairlineWidth, marginLeft: theme.spacing.md },
 });
 

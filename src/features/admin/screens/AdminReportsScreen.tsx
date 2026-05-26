@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/src/services/firebaseClient';
-import { AppIcon } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
+import {
+  ProfileStatCell,
+  ProfileStatsGrid,
+  SettingsGroup,
+  SettingsSection,
+} from '@/src/components/SettingsGroup';
 import { theme } from '@/src/constants/theme';
+import { AdminScreenShell } from '@/src/features/admin/components/AdminScreenShell';
 
 const ORDER_STATUS_OPTIONS: { label: string; value: string; color: string }[] = [
   { label: 'New',              value: 'new',              color: '#6E8A95' },
@@ -18,9 +22,6 @@ const ORDER_STATUS_OPTIONS: { label: string; value: string; color: string }[] = 
   { label: 'Delivered',        value: 'delivered',        color: '#173E4A' },
 ];
 
-const adminTheme = theme.roles.admin;
-const NAVY = adminTheme.primary;
-const BG = adminTheme.background;
 
 interface OrderData {
   id: string;
@@ -146,42 +147,25 @@ export default function ReportsScreen() {
     .slice(0, 5);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronLeft" size={22} color="#fff" />
-        </Pressable>
-        <AppText style={styles.headerTitle}>Reports</AppText>
-      </View>
+    <AdminScreenShell title="Reports" subtitle="Admin">
+      {loading ? (
+        <AppText variant="body" tone="muted" style={styles.empty}>
+          Loading reports…
+        </AppText>
+      ) : (
+        <>
+          <SettingsSection title="Summary" compact />
+          <SettingsGroup compact>
+            <ProfileStatsGrid>
+              <ProfileStatCell compact index={0} total={4} label="Revenue" value={`$${totalRevenue.toLocaleString()}`} icon="Wallet" tone="#34C759" />
+              <ProfileStatCell compact index={1} total={4} label="Orders" value={String(orders.length)} icon="ClipboardList" />
+              <ProfileStatCell compact index={2} total={4} label="Cards printed" value={String(totalCards)} icon="CreditCard" tone="#5856D6" />
+              <ProfileStatCell compact index={3} total={4} label="Commission" value={`$${commissionPaid.toFixed(0)}`} icon="BadgeDollarSign" tone="#FF9500" />
+            </ProfileStatsGrid>
+          </SettingsGroup>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <AppText style={styles.empty}>Loading reports…</AppText>
-        ) : (
-          <>
-            {/* Summary cards */}
-            <AppText style={styles.sectionTitle}>Summary</AppText>
-            <View style={styles.statsGrid}>
-              {[
-                { label: 'Total Revenue', value: `$${totalRevenue.toLocaleString()}`, color: '#10b981', icon: 'Wallet' as const },
-                { label: 'Total Orders',  value: orders.length,                       color: '#3b82f6', icon: 'ClipboardList' as const },
-                { label: 'Cards Printed', value: totalCards,                          color: '#7c3aed', icon: 'CreditCard' as const },
-                { label: 'Commission',    value: `$${commissionPaid.toFixed(0)}`,     color: '#f59e0b', icon: 'BadgeDollarSign' as const },
-              ].map(s => (
-                <View key={s.label} style={styles.statCard}>
-                  <View style={[styles.statIcon, { backgroundColor: s.color + '18' }]}>
-                    <AppIcon name={s.icon} size={20} color={s.color} />
-                  </View>
-                  <AppText style={[styles.statNum, { color: s.color }]}>{s.value}</AppText>
-                  <AppText style={styles.statLabel}>{s.label}</AppText>
-                </View>
-              ))}
-            </View>
-
-            {/* Order status breakdown */}
-            <AppText style={styles.sectionTitle}>Order Status Breakdown</AppText>
-            <View style={styles.card}>
+          <SettingsSection title="Order status" compact />
+          <SettingsGroup compact style={styles.card}>
               {statusBreakdown.map(s => (
                 <View key={s.value} style={styles.barRow}>
                   <AppText style={styles.barLabel}>{s.label}</AppText>
@@ -199,11 +183,10 @@ export default function ReportsScreen() {
                   <AppText style={[styles.barCount, { color: s.color }]}>{s.count}</AppText>
                 </View>
               ))}
-            </View>
+          </SettingsGroup>
 
-            {/* Top salesmen */}
-            <AppText style={styles.sectionTitle}>Top Salesmen</AppText>
-            <View style={styles.card}>
+          <SettingsSection title="Top salesmen" compact />
+          <SettingsGroup compact style={styles.card}>
               {topSalesmen.length === 0 ? (
                 <AppText style={styles.emptyInCard}>No sales data yet.</AppText>
               ) : (
@@ -219,11 +202,10 @@ export default function ReportsScreen() {
                   </View>
                 ))
               )}
-            </View>
+          </SettingsGroup>
 
-            {/* Top printers */}
-            <AppText style={styles.sectionTitle}>Top Printers</AppText>
-            <View style={styles.card}>
+          <SettingsSection title="Top printers" compact />
+          <SettingsGroup compact style={styles.card}>
               {topPrinters.length === 0 ? (
                 <AppText style={styles.emptyInCard}>No printer data yet.</AppText>
               ) : (
@@ -239,28 +221,16 @@ export default function ReportsScreen() {
                   </View>
                 ))
               )}
-            </View>
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          </SettingsGroup>
+        </>
+      )}
+    </AdminScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
-  header: { backgroundColor: NAVY, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, color: '#fff', fontSize: 18, fontWeight: '700' },
-  scroll: { padding: 16, paddingBottom: 40, gap: 12 },
-  empty: { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 15 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: NAVY, marginTop: 4 },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  statCard: { width: '47%', backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  statIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  statNum: { fontSize: 22, fontWeight: '700' },
-  statLabel: { fontSize: 11, color: '#888' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  empty: { textAlign: 'center', marginTop: theme.spacing.xl },
+  card: { paddingVertical: theme.spacing.sm, gap: 10 },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   barLabel: { width: 90, fontSize: 11, color: '#555', fontWeight: '600' },
   barTrack: { flex: 1, height: 10, backgroundColor: '#f0f0f0', borderRadius: 5, overflow: 'hidden' },
@@ -270,8 +240,8 @@ const styles = StyleSheet.create({
   rankBadge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   rankNum: { color: '#fff', fontSize: 11, fontWeight: '700' },
   rankInfo: { flex: 1, gap: 2 },
-  rankName: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
-  rankMeta: { fontSize: 11, color: '#888' },
+  rankName: { fontSize: 15, fontWeight: '600', color: '#111111' },
+  rankMeta: { fontSize: 12, color: '#6E6E73' },
   emptyInCard: { textAlign: 'center', color: '#aaa', fontSize: 13, paddingVertical: 8 },
 });
 

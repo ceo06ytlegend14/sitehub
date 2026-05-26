@@ -55,6 +55,18 @@ export function getAuthErrorMessage(error: unknown): string {
   if (code === 'auth/too-many-requests') {
     return 'Too many attempts. Wait a moment and try again.';
   }
+  if (code === 'auth/account-exists-with-different-credential') {
+    return 'An account already exists with this email using a different sign-in method. Try email and password instead.';
+  }
+  if (code === 'auth/popup-closed-by-user' || code === 'ERR_REQUEST_CANCELED') {
+    return 'Sign-in was cancelled.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'This sign-in method is not enabled in Firebase. Enable it under Authentication → Sign-in method.';
+  }
+  if (code === 'auth/invalid-credential' && message.toLowerCase().includes('apple')) {
+    return 'Apple sign-in failed. Check Firebase Apple provider settings and your bundle ID.';
+  }
   if (code === 'permission-denied' || message.toLowerCase().includes('permission')) {
     return 'Permission denied. Your account does not have access to this action.';
   }

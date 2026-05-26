@@ -1,16 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { collection, doc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/src/services/firebaseClient';
-import { AppIcon } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
+import { SettingsGroup, SettingsSection } from '@/src/components/SettingsGroup';
 import { theme } from '@/src/constants/theme';
-
-const adminTheme = theme.roles.admin;
-const NAVY = adminTheme.primary;
-const BG = adminTheme.background;
+import { AdminScreenShell } from '@/src/features/admin/components/AdminScreenShell';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
 interface Product {
   id: string;
@@ -27,6 +23,7 @@ const DEFAULT_PRODUCTS: Product[] = [
 ];
 
 export default function ProductsScreen() {
+  const { colors } = usePreferences();
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
   const [editPrices, setEditPrices] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -119,115 +116,107 @@ export default function ProductsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronLeft" size={22} color="#fff" />
-        </Pressable>
-        <AppText style={styles.headerTitle}>Products</AppText>
-      </View>
+    <AdminScreenShell title="Products" subtitle="Admin">
+      <SettingsSection
+        title="Catalog"
+        footer="Manage card types, prices, and availability."
+        compact
+      />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <AppText style={styles.subtitle}>
-          Manage card types, prices, and availability.
+      {loading ? (
+        <AppText variant="body" tone="muted" style={styles.empty}>
+          Loading products…
         </AppText>
-
-        {loading ? (
-          <AppText style={styles.empty}>Loading products…</AppText>
-        ) : (
-          products.map(product => (
-            <View key={product.id} style={[styles.card, !product.isActive && styles.cardInactive]}>
+      ) : (
+        products.map((product) => (
+          <SettingsGroup key={product.id} compact style={[styles.card, !product.isActive && styles.cardInactive]}>
               {/* Product header */}
               <View style={styles.productHeader}>
-                <View style={styles.emojiWrap}>
+                <View style={[styles.emojiWrap, { backgroundColor: colors.surfaceSoft }]}>
                   <AppText style={styles.emoji}>{product.emoji}</AppText>
                 </View>
                 <View style={styles.productInfo}>
-                  <AppText style={styles.productName}>{product.name}</AppText>
-                  <AppText style={styles.productId}>{product.id}</AppText>
+                  <AppText variant="body" weight="bold">
+                    {product.name}
+                  </AppText>
+                  <AppText variant="caption" tone="muted">
+                    {product.id}
+                  </AppText>
                 </View>
                 <View style={styles.toggleWrap}>
-                  <AppText style={[styles.toggleLabel, { color: product.isActive ? '#2BC48A' : '#aaa' }]}>
+                  <AppText variant="caption" weight="semibold" style={{ color: product.isActive ? theme.colors.success : colors.textMuted }}>
                     {product.isActive ? 'Active' : 'Inactive'}
                   </AppText>
                   <Switch
                     value={product.isActive}
                     onValueChange={() => toggleActive(product)}
-                    trackColor={{ false: '#ddd', true: '#2BC48A' }}
+                    trackColor={{ false: colors.border, true: theme.colors.success }}
                     thumbColor="#fff"
                   />
                 </View>
               </View>
 
-              {/* Price editor */}
               <View style={styles.priceRow}>
-                <AppText style={styles.priceLabel}>Price (USD)</AppText>
-                <View style={styles.priceInputWrap}>
-                  <AppText style={styles.dollarSign}>$</AppText>
+                <AppText variant="body" weight="medium">
+                  Price (USD)
+                </AppText>
+                <View style={[styles.priceInputWrap, { borderColor: colors.border, backgroundColor: colors.surfaceSoft }]}>
+                  <AppText variant="body" weight="semibold" tone="muted">
+                    $
+                  </AppText>
                   <TextInput
-                    style={styles.priceInput}
+                    style={[styles.priceInput, { color: colors.typographyColor }]}
                     value={editPrices[product.id] ?? String(product.price)}
-                    onChangeText={v => setEditPrices(prev => ({ ...prev, [product.id]: v }))}
+                    onChangeText={(v) => setEditPrices((prev) => ({ ...prev, [product.id]: v }))}
                     keyboardType="decimal-pad"
                     placeholder="0.00"
-                    placeholderTextColor="#ccc"
+                    placeholderTextColor={colors.textMuted}
                   />
                 </View>
               </View>
 
-              {/* Current price display */}
-              <View style={styles.currentPriceRow}>
-                <AppText style={styles.currentPriceLabel}>Current saved price:</AppText>
-                <AppText style={styles.currentPrice}>${product.price}</AppText>
-              </View>
+              <AppText variant="caption" tone="muted">
+                Saved price: ${product.price}
+              </AppText>
 
-              {/* Save button */}
               <Pressable
-                style={[styles.saveBtn, saving[product.id] && styles.saveBtnDisabled]}
+                style={[styles.saveBtn, { backgroundColor: colors.primary }, saving[product.id] && styles.saveBtnDisabled]}
                 onPress={() => saveProduct(product)}
                 disabled={saving[product.id]}
               >
-                <AppText style={styles.saveBtnText}>
-                  {saving[product.id] ? 'Saving…' : 'Save Changes'}
+                <AppText variant="body" weight="bold" style={styles.saveBtnText}>
+                  {saving[product.id] ? 'Saving…' : 'Save changes'}
                 </AppText>
               </Pressable>
-            </View>
-          ))
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          </SettingsGroup>
+        ))
+      )}
+    </AdminScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
-  header: { backgroundColor: NAVY, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, color: '#fff', fontSize: 18, fontWeight: '700' },
-  scroll: { padding: 16, paddingBottom: 40, gap: 14 },
-  subtitle: { fontSize: 13, color: '#888', marginBottom: 4 },
-  empty: { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 15 },
-  card: { backgroundColor: '#fff', borderRadius: 18, padding: 16, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  empty: { textAlign: 'center', marginTop: theme.spacing.xl },
+  card: { marginBottom: theme.spacing.sm, padding: theme.spacing.md, gap: theme.spacing.sm },
   cardInactive: { opacity: 0.6 },
-  productHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  emojiWrap: { width: 52, height: 52, borderRadius: 16, backgroundColor: adminTheme.soft, alignItems: 'center', justifyContent: 'center' },
-  emoji: { fontSize: 28 },
+  productHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  emojiWrap: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  emoji: { fontSize: 24 },
   productInfo: { flex: 1, gap: 2 },
-  productName: { fontSize: 17, fontWeight: '700', color: '#1A1A2E' },
-  productId: { fontSize: 11, color: '#aaa' },
   toggleWrap: { alignItems: 'center', gap: 4 },
-  toggleLabel: { fontSize: 10, fontWeight: '700' },
-  priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  priceLabel: { fontSize: 14, fontWeight: '600', color: '#555' },
-  priceInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FF', borderRadius: 12, borderWidth: 1, borderColor: '#E0E4FF', paddingHorizontal: 12, height: 44, gap: 4 },
-  dollarSign: { fontSize: 16, fontWeight: '700', color: '#555' },
-  priceInput: { fontSize: 18, fontWeight: '700', color: '#1A1A2E', minWidth: 80 },
-  currentPriceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  currentPriceLabel: { fontSize: 12, color: '#aaa' },
-  currentPrice: { fontSize: 14, fontWeight: '700', color: NAVY },
-  saveBtn: { backgroundColor: NAVY, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
+  priceInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: theme.radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    height: 44,
+    gap: 4,
+  },
+  priceInput: { fontSize: 17, fontWeight: '600', minWidth: 72, textAlign: 'right' },
+  saveBtn: { borderRadius: theme.radius.sm, paddingVertical: 11, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  saveBtnText: { color: '#FFFFFF' },
 });
 

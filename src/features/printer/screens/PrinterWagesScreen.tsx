@@ -18,40 +18,30 @@ export default function WagesScreen() {
     () => completed.reduce((sum, job) => sum + job.cardsPrinted * job.perCardBonus + job.perOrderBonus, 0),
     [completed]
   );
-  const failedCards = useMemo(() => completed.reduce((sum, job) => sum + job.failedCards, 0), [completed]);
-
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <AppText variant="caption" weight="bold" style={styles.headerSub}>This period</AppText>
-        <AppText variant="h1" weight="bold" style={styles.headerTitle}>My Wages</AppText>
-        <View style={styles.totalCard}>
-          <View style={styles.totalIcon}>
-            <AppIcon name="BadgeDollarSign" size={24} color={theme.colors.textInverse} />
-          </View>
-          <View style={styles.totalCopy}>
-            <AppText style={styles.totalLabel}>Total Earned</AppText>
-            <AppText style={styles.totalAmount}>${totalWage.toFixed(2)}</AppText>
-            <AppText style={styles.totalSub}>{totalCards} cards, {completed.length} jobs done</AppText>
-          </View>
-        </View>
+        <AppText variant="caption" weight="bold" style={styles.headerSub}>
+          This period
+        </AppText>
+        <AppText variant="h1" weight="bold" style={styles.headerTitle}>
+          My Wages
+        </AppText>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <AppIcon name="Printer" size={22} color={printerTheme.primary} />
-            </View>
-            <AppText style={styles.statNum}>{totalCards}</AppText>
-            <AppText style={styles.statLabel}>Cards Printed</AppText>
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryIcon}>
+            <AppIcon name="BadgeDollarSign" size={22} color={printerTheme.primary} />
           </View>
-          <View style={styles.statCard}>
-            <View style={[styles.statIcon, failedCards > 0 && styles.statIconError]}>
-              <AppIcon name="ShieldCheck" size={22} color={failedCards > 0 ? theme.status.error : theme.status.success} />
-            </View>
-            <AppText style={[styles.statNum, failedCards > 0 && styles.statError]}>{failedCards}</AppText>
-            <AppText style={styles.statLabel}>Failed Cards</AppText>
+          <View style={styles.summaryCopy}>
+            <AppText variant="caption" tone="muted" weight="bold" style={styles.summaryLabel}>
+              TOTAL EARNED
+            </AppText>
+            <AppText style={styles.summaryAmount}>${totalWage.toFixed(2)}</AppText>
+            <AppText variant="caption" tone="muted" style={styles.summaryMeta}>
+              {totalCards} cards · {completed.length} jobs complete
+            </AppText>
           </View>
         </View>
 
@@ -100,104 +90,59 @@ const styles = StyleSheet.create({
     backgroundColor: printerTheme.background,
   },
   header: {
-    backgroundColor: printerTheme.primary,
+    backgroundColor: printerTheme.background,
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.xl,
-    borderBottomLeftRadius: theme.radius.xl,
-    borderBottomRightRadius: theme.radius.xl,
+    paddingTop: theme.spacing.xs,
+    paddingBottom: theme.spacing.sm,
+    gap: 2,
   },
   headerSub: {
-    color: theme.colors.textInverse,
-    opacity: 0.82,
+    color: theme.colors.textMuted,
   },
   headerTitle: {
-    color: theme.colors.textInverse,
-    marginBottom: theme.spacing.md,
+    color: printerTheme.text,
   },
-  totalCard: {
+  summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
     padding: theme.spacing.md,
+    ...theme.shadows.control,
   },
-  totalIcon: {
-    width: 52,
-    height: 52,
+  summaryIcon: {
+    width: 44,
+    height: 44,
     borderRadius: theme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: printerTheme.primaryDark,
+    backgroundColor: printerTheme.soft,
   },
-  totalCopy: {
+  summaryCopy: {
     flex: 1,
     minWidth: 0,
     gap: 2,
   },
-  totalLabel: {
-    color: theme.colors.textInverse,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    opacity: 0.8,
+  summaryLabel: {
+    letterSpacing: 0.35,
   },
-  totalAmount: {
-    color: theme.colors.textInverse,
-    fontSize: 36,
-    lineHeight: 42,
+  summaryAmount: {
+    color: printerTheme.text,
+    fontSize: 30,
+    lineHeight: 34,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
-  totalSub: {
-    color: theme.colors.textInverse,
-    fontSize: 12,
-    fontWeight: '600',
-    opacity: 0.78,
+  summaryMeta: {
+    marginTop: 2,
   },
   scroll: {
     padding: theme.spacing.md,
     paddingBottom: 120,
     gap: theme.spacing.sm,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
-    alignItems: 'center',
-    gap: 5,
-    ...theme.shadows.card,
-  },
-  statIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: theme.radius.md,
-    backgroundColor: printerTheme.soft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statIconError: {
-    backgroundColor: `${theme.status.error}14`,
-  },
-  statNum: {
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '700',
-    color: printerTheme.text,
-  },
-  statError: {
-    color: theme.status.error,
-  },
-  statLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   sectionHeader: {
     flexDirection: 'row',

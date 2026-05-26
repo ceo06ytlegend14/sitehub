@@ -7,6 +7,8 @@ import { getPublicBioPageBySlug } from '@/src/services/firestoreService';
 import { BioPage } from '@/src/types/models';
 import { bioThemeOptions } from '@/src/constants/options';
 import { theme } from '@/src/constants/theme';
+import { useIsGuest } from '@/src/hooks/useIsGuest';
+import { useRequireAccount } from '@/src/providers/GuestGateProvider';
 
 interface Props { slug: string }
 
@@ -24,8 +26,11 @@ function SocialButton({ icon, label, url, bg }: { icon: React.ComponentProps<typ
 }
 
 export function PublicBioScreen({ slug }: Props) {
+  const isGuest = useIsGuest();
+  const { requireAccount } = useRequireAccount();
   const [bioPage, setBioPage] = useState<BioPage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [contactPreviewed, setContactPreviewed] = useState(false);
 
   useEffect(() => {
     getPublicBioPageBySlug(slug).then(setBioPage).finally(() => setIsLoading(false));
@@ -55,7 +60,18 @@ export function PublicBioScreen({ slug }: Props) {
     await Share.share({ message: `${bioPage!.displayName} — ${profileUrl}`, url: profileUrl });
   }
 
+  function handleSaveContactPreview() {
+    setContactPreviewed(true);
+  }
+
   async function handleSaveContact() {
+    if (isGuest) {
+      requireAccount(undefined, {
+        message: 'Create an account to save contacts to your device and history.',
+      });
+      return;
+    }
+
     // vCard format
     const vcard = [
       'BEGIN:VCARD',
@@ -99,10 +115,29 @@ export function PublicBioScreen({ slug }: Props) {
         ) : null}
 
         {/* Save to Contacts */}
-        <Pressable style={[styles.saveContactBtn, { backgroundColor: themeStyle.accent }]} onPress={handleSaveContact}>
+        <Pressable
+          style={[styles.saveContactBtn, { backgroundColor: themeStyle.accent }]}
+          onPress={isGuest ? handleSaveContactPreview : handleSaveContact}
+        >
           <AppIcon name="User" size={18} color="#fff" />
-          <AppText style={styles.saveContactText}>Save to Contacts</AppText>
+          <AppText style={styles.saveContactText}>
+            {isGuest ? 'Preview Add to Contact' : 'Save to Contacts'}
+          </AppText>
         </Pressable>
+        {contactPreviewed && isGuest ? (
+          <View style={styles.previewBox}>
+            <AppText variant="caption" tone="muted" style={styles.previewNote}>
+              Preview: {bioPage.displayName}
+              {bioPage.whatsapp ? ` · ${bioPage.whatsapp}` : ''}
+              {bioPage.telegram ? ` · Telegram ${bioPage.telegram}` : ''}
+            </AppText>
+            <Pressable onPress={handleSaveContact}>
+              <AppText variant="caption" weight="bold" style={[styles.previewNote, { color: themeStyle.accent }]}>
+                Save for real →
+              </AppText>
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* Social links */}
         <View style={styles.socials}>
@@ -148,4 +183,6 @@ const styles = StyleSheet.create({
   socialBtn: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, padding: theme.spacing.md, borderRadius: theme.radius.lg },
   socialLabel: { color: '#fff', fontWeight: '600', flex: 1 },
   footer: { fontSize: 11, color: 'rgba(0,0,0,0.3)', marginTop: theme.spacing.md },
+  previewBox: { gap: theme.spacing.xs, alignItems: 'center' },
+  previewNote: { textAlign: 'center' },
 });

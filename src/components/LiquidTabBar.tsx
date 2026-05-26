@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,8 @@ import { AppIcon, type AppIconName } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
 import { appRoutes } from '@/src/constants/navigation';
 import { getRoleTheme, theme } from '@/src/constants/theme';
+import { useAuth } from '@/src/hooks/useAuth';
+import { useOrders } from '@/src/hooks/useOrders';
 import { usePreferences } from '@/src/hooks/usePreferences';
 
 interface Props {
@@ -43,11 +45,13 @@ function TabIcon({
   active,
   accentColor,
   mutedColor,
+  badgeLabel,
 }: {
   routeName: string;
   active: boolean;
   accentColor: string;
   mutedColor: string;
+  badgeLabel?: string;
 }) {
   return (
     <View style={styles.iconShell}>
@@ -56,6 +60,13 @@ function TabIcon({
         size={active ? 24 : 22}
         color={active ? accentColor : mutedColor}
       />
+      {badgeLabel ? (
+        <View style={styles.badge}>
+          <AppText style={styles.badgeText} numberOfLines={1}>
+            {badgeLabel}
+          </AppText>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -124,6 +135,7 @@ function useReduceMotion() {
 
 export function LiquidTabBar({ state, navigation, descriptors }: Props) {
   const { colors } = usePreferences();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const reduceTransparency = useReduceTransparency();
   const reduceMotion = useReduceMotion();
@@ -147,6 +159,17 @@ export function LiquidTabBar({ state, navigation, descriptors }: Props) {
   const roleTheme = getRoleTheme(isSalesBar ? 'sales' : isPrinterBar ? 'printer' : 'default');
   const accentColor = colors.primary;
   const mutedColor = colors.textMuted;
+
+  const isSalesUser = user?.role === 'sales';
+  const { orders } = useOrders(isSalesUser ? 'sales' : 'guest', isSalesUser ? user?.id ?? 'guest' : 'guest');
+  const activeOrdersCount = useMemo(
+    () =>
+      isSalesUser
+        ? orders.filter((order) => order.status !== 'delivered' && (order.cardStatus ?? 'active') !== 'closed').length
+        : 0,
+    [isSalesUser, orders]
+  );
+  const ordersBadgeLabel = activeOrdersCount > 99 ? '99+' : activeOrdersCount > 0 ? String(activeOrdersCount) : '';
 
   const newOrderHref = isSalesBar
     ? appRoutes.sales.newOrder
@@ -320,6 +343,7 @@ export function LiquidTabBar({ state, navigation, descriptors }: Props) {
           const route = item.route;
           const isActive = activeRoute?.name === route.name;
           const label = routeLabel(route, descriptors);
+          const showOrdersBadge = isSalesBar && route.name === 'orders' && activeOrdersCount > 0;
 
           return (
             <Pressable
@@ -356,6 +380,7 @@ export function LiquidTabBar({ state, navigation, descriptors }: Props) {
                   active={isActive}
                   accentColor={accentColor}
                   mutedColor={mutedColor}
+                  badgeLabel={showOrdersBadge ? ordersBadgeLabel : undefined}
                 />
                 <AppText
                   variant="caption"
@@ -461,6 +486,23 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.danger,
+  },
+  badgeText: {
+    color: theme.colors.textInverse,
+    fontSize: 9,
+    fontWeight: '700',
   },
   label: {
     maxWidth: '100%',

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppButton } from '@/src/components/AppButton';
 import { AppCard } from '@/src/components/AppCard';
@@ -14,6 +14,11 @@ import { useOrders } from '@/src/hooks/useOrders';
 import { useRoleFlags } from '@/src/hooks/useRoleFlags';
 import { updatePrinterJob } from '@/src/services/firestoreService';
 import { Order, PrinterJob } from '@/src/types/models';
+import { AppSearchBar } from '@/src/components/AppSearchBar';
+import { searchEmptyMessage, useSearchQuery } from '@/src/hooks/useSearchQuery';
+import { appRoutes } from '@/src/constants/navigation';
+import { AppAvatar } from '@/src/components/AppAvatar';
+import { useBioPage } from '@/src/hooks/useBioPage';
 
 function StatusBadge({ status }: { status: Order['status'] }) {
   const opt = orderStatusOptions.find((o) => o.value === status);
@@ -154,19 +159,99 @@ export function OrdersQueueScreen() {
   const { role, isSales, isPrinter } = useRoleFlags();
   const { orders, isLoading: ordersLoading, error: ordersError, refresh } = useOrders(role, user?.id ?? '');
   const { jobs, isLoading: jobsLoading, error: jobsError } = usePrinterJobs();
+  const { bioPage } = useBioPage(user?.id ?? '');
+  const {
+    input: searchInput,
+    setInput: setSearchInput,
+    query: searchQuery,
+    submitSearch,
+    clearSearch,
+  } = useSearchQuery();
 
-  const activeJobs = useMemo(() => jobs.filter((j) => j.stage !== 'done' && j.stage !== 'failed'), [jobs]);
+  const activeJobs = useMemo(
+    () => jobs.filter((j) => j.stage !== 'done' && j.stage !== 'failed'),
+    [jobs]
+  );
+
+  const filteredOrders = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter((order) => {
+      const name = order.customerName.toLowerCase();
+      const code = order.cardCode.toLowerCase();
+      const id = order.id.toLowerCase();
+      const phone = order.phone.toLowerCase();
+      return (
+        name.includes(q) ||
+        code.includes(q) ||
+        id.includes(q) ||
+        phone.includes(q)
+      );
+    });
+  }, [orders, searchQuery]);
+
+  const filteredJobs = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return activeJobs;
+    return activeJobs.filter((job) => {
+      const queue = String(job.queueNumber);
+      const id = job.id.toLowerCase();
+      const orderId = job.orderId.toLowerCase();
+      return queue.includes(q) || id.includes(q) || orderId.includes(q);
+    });
+  }, [activeJobs, searchQuery]);
 
   return (
     <ScreenContainer>
-      <View style={styles.header}>
+      <View style={styles.headerShell}>
         <View style={styles.headerRow}>
-          <AppIcon name={isPrinter ? 'Printer' : 'ClipboardList'} size={22} color={theme.colors.primaryDark} />
-          <AppText variant="h1">{isPrinter ? 'Printer Queue' : 'My Orders'}</AppText>
+          <Pressable
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            hitSlop={10}
+          >
+            <AppIcon name="ChevronLeft" size={20} color={theme.colors.primaryDark} />
+          </Pressable>
+          <View style={styles.headerCopy}>
+            <AppText variant="caption" tone="muted">
+              {isPrinter ? 'Workshop queue' : 'Sales queue'}
+            </AppText>
+            <AppText variant="h1">
+              {isPrinter ? 'Printer Queue' : 'My Orders'}
+            </AppText>
+          </View>
+          <Pressable
+            onPress={() =>
+              router.push(isPrinter ? appRoutes.printer.settings : appRoutes.sales.settings)
+            }
+            hitSlop={10}
+          >
+            <AppAvatar
+              name={user?.displayName ?? (isPrinter ? 'Printer' : 'Sales')}
+              role={isPrinter ? 'printer' : 'sales'}
+              size={40}
+              source={bioPage?.photoUrl ? { uri: bioPage.photoUrl } : undefined}
+            />
+          </Pressable>
         </View>
-        <AppText variant="body" tone="muted">
-          {isSales ? 'All orders you have submitted.' : 'Live jobs. Tap to advance stage.'}
+        <AppText variant="body" tone="muted" style={styles.headerSubtitle}>
+          {isSales
+            ? 'All orders you have submitted.'
+            : 'Live jobs. Tap to advance stage.'}
         </AppText>
+        <AppSearchBar
+          value={searchInput}
+          onChangeText={setSearchInput}
+          onSearch={submitSearch}
+          onClear={clearSearch}
+          loading={ordersLoading || jobsLoading}
+          role={isPrinter ? 'printer' : 'sales'}
+          placeholder={
+            isPrinter
+              ? 'Search by job number, order, or ID…'
+              : 'Search by customer, card code, or order ID…'
+          }
+        />
       </View>
 
       {isSales ? (
@@ -182,12 +267,19 @@ export function OrdersQueueScreen() {
             <AppCard>
               <AppText variant="body" tone="muted">Loading orders...</AppText>
             </AppCard>
-          ) : orders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <AppCard>
-              <AppText variant="body" tone="muted">No orders yet. Create your first one above.</AppText>
+              <AppText variant="body" tone="muted">
+                {searchEmptyMessage(
+                  false,
+                  Boolean(searchQuery),
+                  searchQuery,
+                  'No orders yet. Create your first one above.'
+                )}
+              </AppText>
             </AppCard>
           ) : null}
-          {orders.map((order) => <OrderCard key={order.id} order={order} />)}
+          {filteredOrders.map((order) => <OrderCard key={order.id} order={order} />)}
         </>
       ) : null}
 
@@ -208,13 +300,20 @@ export function OrdersQueueScreen() {
             <AppCard style={styles.emptyCard}>
               <AppText variant="body" tone="muted">Loading queue...</AppText>
             </AppCard>
-          ) : activeJobs.length === 0 ? (
+          ) : filteredJobs.length === 0 ? (
             <AppCard style={styles.emptyCard}>
-              <AppText variant="h2">Queue is clear</AppText>
-              <AppText variant="body" tone="muted">No active jobs right now.</AppText>
+              <AppText variant="h2">No jobs</AppText>
+              <AppText variant="body" tone="muted">
+                {searchEmptyMessage(
+                  false,
+                  Boolean(searchQuery),
+                  searchQuery,
+                  'No active jobs right now.'
+                )}
+              </AppText>
             </AppCard>
           ) : null}
-          {activeJobs.map((job) => <JobCard key={job.id} job={job} />)}
+          {filteredJobs.map((job) => <JobCard key={job.id} job={job} />)}
         </>
       ) : null}
     </ScreenContainer>
@@ -222,8 +321,33 @@ export function OrdersQueueScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { gap: 2, marginBottom: theme.spacing.xs },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
+  headerShell: {
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  headerSubtitle: {
+    marginTop: 4,
+  },
   orderCard: { padding: theme.spacing.md, gap: theme.spacing.sm },
   orderTop: { flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.sm },
   orderInfo: { flex: 1, gap: 3 },

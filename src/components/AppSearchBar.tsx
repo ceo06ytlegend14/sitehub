@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -18,21 +18,35 @@ export interface AppSearchBarProps extends Omit<TextInputProps, 'role' | 'style'
   onClear?: () => void;
   loading?: boolean;
   role?: RoleThemeKey;
+  /** Removes outer margins when nested in a screen header. */
+  embedded?: boolean;
 }
 
-export function AppSearchBar({
-  value,
-  onChangeText,
-  onSearch,
-  onClear,
-  loading = false,
-  role = 'admin',
-  placeholder = 'Search...',
-  ...textInputProps
-}: AppSearchBarProps) {
+export type AppSearchBarHandle = {
+  focus: () => void;
+};
+
+export const AppSearchBar = forwardRef<AppSearchBarHandle, AppSearchBarProps>(function AppSearchBar(
+  {
+    value,
+    onChangeText,
+    onSearch,
+    onClear,
+    loading = false,
+    role = 'admin',
+    placeholder = 'Search...',
+    embedded = false,
+    ...textInputProps
+  },
+  ref
+) {
   const { colors } = useAppTheme();
   const roleTheme = getRoleTheme(role);
   const inputRef = useRef<TextInput>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+  }));
 
   const handleSubmit = () => {
     onSearch?.();
@@ -51,6 +65,7 @@ export function AppSearchBar({
     <View
       style={[
         styles.wrap,
+        embedded && styles.wrapEmbedded,
         {
           backgroundColor: colors.surface,
           borderColor: colors.border,
@@ -104,7 +119,7 @@ export function AppSearchBar({
       </Pressable>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: {
@@ -119,6 +134,10 @@ const styles = StyleSheet.create({
     paddingRight: theme.spacing.xs,
     paddingVertical: theme.spacing.xs,
     ...theme.shadows.control,
+  },
+  wrapEmbedded: {
+    marginHorizontal: 0,
+    marginBottom: 0,
   },
   input: {
     flex: 1,

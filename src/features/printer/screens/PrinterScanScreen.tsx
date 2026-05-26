@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/src/components/AppButton';
@@ -9,6 +9,25 @@ import { usePrinterJobs } from '@/src/hooks/usePrinterJobs';
 
 const printerTheme = theme.roles.printer;
 
+const SCAN_STEPS = [
+  {
+    title: 'Open this Scan screen',
+    detail: 'Tap Scan in the bottom tab bar (between Queue and the + button).',
+  },
+  {
+    title: 'Pick a job',
+    detail: 'Tap the NFC zone below or Start NFC Write for the next queued job. You can also open a job from Queue first.',
+  },
+  {
+    title: 'Write the chip',
+    detail: 'Review the profile URL, tap Write & Lock Chip, and hold a blank NFC card to your phone.',
+  },
+  {
+    title: 'Verify and finish QA',
+    detail: 'Wait for verification, then continue to the QA video step to complete the job.',
+  },
+] as const;
+
 export default function ScanEntryScreen() {
   const { jobs } = usePrinterJobs();
   const nextJob = jobs.find((job) => job.stage === 'queued' || job.stage === 'printing');
@@ -16,11 +35,30 @@ export default function ScanEntryScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <AppText variant="caption" weight="bold" style={styles.headerSub}>NFC station</AppText>
-        <AppText variant="h1" weight="bold" style={styles.headerTitle}>Quick Scan</AppText>
+        <AppText variant="caption" weight="bold" style={styles.headerSub}>
+          NFC station
+        </AppText>
+        <AppText variant="h1" weight="bold" style={styles.headerTitle}>
+          Quick Scan
+        </AppText>
       </View>
 
-      <View style={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <View style={styles.callout}>
+          <View style={styles.calloutIcon}>
+            <AppIcon name="ScanLine" size={20} color={printerTheme.primary} />
+          </View>
+          <View style={styles.calloutCopy}>
+            <AppText variant="body" weight="bold" style={styles.calloutTitle}>
+              Use the Scan tab to start
+            </AppText>
+            <AppText variant="caption" tone="muted" style={styles.calloutText}>
+              You are on the right screen. Tap the large NFC area below or the primary action to open encoding for the
+              next job in your queue.
+            </AppText>
+          </View>
+        </View>
+
         <Pressable
           style={({ pressed }) => [styles.tapZone, pressed && styles.tapZonePressed]}
           onPress={() => {
@@ -32,19 +70,34 @@ export default function ScanEntryScreen() {
           <View style={styles.tapIcon}>
             <AppIcon name="Nfc" size={24} color={printerTheme.primary} />
           </View>
-          <AppText variant="h2" weight="bold" style={styles.tapTitle}>Ready to Write</AppText>
+          <AppText variant="h2" weight="bold" style={styles.tapTitle}>
+            Ready to Write
+          </AppText>
           <AppText variant="body" tone="muted" style={styles.tapSub}>
             {nextJob ? `Next job #${String(nextJob.queueNumber).slice(-4)}` : 'No jobs in queue'}
+          </AppText>
+          <AppText variant="caption" style={styles.tapHint}>
+            Tap here to open the NFC writer
           </AppText>
         </Pressable>
 
         <View style={styles.stepsCard}>
-          {['Tap blank NFC card to phone', 'Write profile URL', 'Read back to verify', 'Lock the chip'].map((item, index) => (
-            <View key={item} style={styles.stepRow}>
+          <AppText variant="caption" weight="bold" style={styles.stepsHeading}>
+            HOW IT WORKS
+          </AppText>
+          {SCAN_STEPS.map((item, index) => (
+            <View key={item.title} style={styles.stepRow}>
               <View style={styles.stepNum}>
                 <AppText style={styles.stepNumText}>{index + 1}</AppText>
               </View>
-              <AppText variant="body" style={styles.stepText}>{item}</AppText>
+              <View style={styles.stepCopy}>
+                <AppText variant="body" weight="semibold" style={styles.stepTitle}>
+                  {item.title}
+                </AppText>
+                <AppText variant="caption" tone="muted" style={styles.stepText}>
+                  {item.detail}
+                </AppText>
+              </View>
             </View>
           ))}
         </View>
@@ -65,7 +118,7 @@ export default function ScanEntryScreen() {
             onPress={() => router.push('/printer/queue')}
           />
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -76,36 +129,63 @@ const styles = StyleSheet.create({
     backgroundColor: printerTheme.background,
   },
   header: {
-    backgroundColor: printerTheme.primary,
+    backgroundColor: printerTheme.background,
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-    borderBottomLeftRadius: theme.radius.xl,
-    borderBottomRightRadius: theme.radius.xl,
+    paddingTop: theme.spacing.xs,
+    paddingBottom: theme.spacing.md,
     gap: 2,
   },
   headerTitle: {
-    color: theme.colors.textInverse,
+    color: printerTheme.text,
   },
   headerSub: {
-    color: theme.colors.textInverse,
-    opacity: 0.82,
+    color: theme.colors.textMuted,
   },
   body: {
-    flex: 1,
     padding: theme.spacing.lg,
+    paddingBottom: 120,
     gap: theme.spacing.md,
   },
-  tapZone: {
+  callout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: printerTheme.soft,
+    padding: theme.spacing.md,
+    ...theme.shadows.control,
+  },
+  calloutIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: printerTheme.soft,
+  },
+  calloutCopy: {
     flex: 1,
-    minHeight: 260,
+    gap: 4,
+  },
+  calloutTitle: {
+    color: printerTheme.text,
+  },
+  calloutText: {
+    lineHeight: 18,
+  },
+  tapZone: {
+    minHeight: 220,
     borderRadius: theme.radius.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
     backgroundColor: theme.colors.surface,
     borderWidth: 2,
     borderColor: printerTheme.soft,
     borderStyle: 'dashed',
+    padding: theme.spacing.lg,
     ...theme.shadows.card,
   },
   tapZonePressed: {
@@ -126,6 +206,11 @@ const styles = StyleSheet.create({
   tapSub: {
     textAlign: 'center',
   },
+  tapHint: {
+    color: printerTheme.primary,
+    fontWeight: '600',
+    marginTop: 4,
+  },
   stepsCard: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
@@ -133,10 +218,22 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     ...theme.shadows.card,
   },
+  stepsHeading: {
+    color: theme.colors.textMuted,
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
   stepRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: theme.spacing.sm,
+  },
+  stepCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  stepTitle: {
+    color: printerTheme.text,
   },
   stepNum: {
     width: 28,
@@ -152,7 +249,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   stepText: {
-    flex: 1,
-    color: printerTheme.text,
+    lineHeight: 17,
   },
 });

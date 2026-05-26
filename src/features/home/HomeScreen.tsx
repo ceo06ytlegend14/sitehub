@@ -11,12 +11,17 @@ import { useAuth } from '@/src/hooks/useAuth';
 import { useOrders } from '@/src/hooks/useOrders';
 import { usePrinterJobs } from '@/src/hooks/usePrinterJobs';
 import { useRoleFlags } from '@/src/hooks/useRoleFlags';
+import { GuestHomeScreen } from '@/src/features/guest/GuestHomeScreen';
 
 export function HomeScreen() {
   const { user } = useAuth();
   const { role, isSales, isPrinter, isCustomer, isGuest } = useRoleFlags();
   const { jobs } = usePrinterJobs();
   const { orders, isLoading: ordersLoading, error: ordersError, refresh } = useOrders(role, user?.id ?? '');
+
+  if (isGuest) {
+    return <GuestHomeScreen />;
+  }
 
   const queueCount = isSales
     ? orders.filter((order) => order.status !== 'delivered').length

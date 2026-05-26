@@ -9,18 +9,30 @@ import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { bioThemeOptions } from '@/src/constants/options';
 import { theme } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/useAuth';
+import { useIsGuest } from '@/src/hooks/useIsGuest';
 import { useBioPage } from '@/src/hooks/useBioPage';
+import { useRequireAccount } from '@/src/providers/GuestGateProvider';
 import { BioTheme } from '@/src/types/models';
 
 export function ThemePickerScreen() {
   const { user } = useAuth();
+  const isGuest = useIsGuest();
+  const { requireAccount } = useRequireAccount();
   const { bioPage, saveBioPage, isLoading } = useBioPage(user?.id ?? '');
+  const [previewTheme, setPreviewTheme] = useState<BioTheme>('vibrant_pink');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const current = bioPage?.theme ?? 'vibrant_pink';
+  const current = isGuest ? previewTheme : (bioPage?.theme ?? 'vibrant_pink');
 
   async function handleSelect(value: BioTheme) {
+    if (isGuest) {
+      setPreviewTheme(value);
+      return;
+    }
+    if (!requireAccount(undefined, { message: 'Create an account to save your bio theme.' })) {
+      return;
+    }
     if (!bioPage || saving) return;
     setSaving(true);
     setError(null);
@@ -41,7 +53,9 @@ export function ThemePickerScreen() {
         showBack={router.canGoBack()}
       />
       <AppText variant="body" tone="muted">
-        Pick the look for your public bio page. Changes save when you choose a theme.
+        {isGuest
+          ? 'Preview bio themes in guest mode. Sign up to save your choice.'
+          : 'Pick the look for your public bio page. Changes save when you choose a theme.'}
       </AppText>
 
       {error ? (
@@ -54,7 +68,7 @@ export function ThemePickerScreen() {
         <AppSelect<BioTheme>
           label="Theme"
           value={current}
-          disabled={isLoading || !bioPage || saving}
+          disabled={!isGuest && (isLoading || !bioPage || saving)}
           options={bioThemeOptions.map((opt) => ({
             label: opt.label,
             value: opt.value,

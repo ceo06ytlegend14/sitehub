@@ -17,6 +17,7 @@ import { firebaseCollections } from '@/src/constants/collections';
 import { auth, db } from '@/src/services/firebaseClient';
 import { isDemoAccountEmail } from '@/src/utils/demoAccounts';
 import {
+  AppNotification,
   BioPage,
   NfcCard,
   NfcStatus,
@@ -76,6 +77,10 @@ function toIso(value: unknown): string {
 
 function sortNewestFirst<T extends { createdAt?: string; updatedAt?: string }>(items: T[]) {
   return items.sort((a, b) => (b.createdAt ?? b.updatedAt ?? '').localeCompare(a.createdAt ?? a.updatedAt ?? ''));
+}
+
+function sortIsoNewestFirst<T extends { createdAt: string }>(items: T[]) {
+  return items.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 }
 
 function withoutUndefined<T extends Record<string, unknown>>(payload: T): Record<string, unknown> {
@@ -569,6 +574,53 @@ export function subscribePrinterJobs(
       onError?.(error);
     }
   );
+}
+
+function mapNotification(id: string, data: any): AppNotification {
+  return {
+    id,
+    title: data.title ?? 'Notification',
+    message: data.message ?? '',
+    isRead: Boolean(data.isRead ?? false),
+    createdAt: toIso(data.createdAt),
+    userId: data.userId,
+    priority: data.priority,
+    actionUrl: data.actionUrl,
+  };
+}
+
+export function subscribeNotifications(
+  userId: string,
+  callback: (items: AppNotification[]) => void,
+  onError?: (error: Error) => void
+) {
+  if (!userId || userId === 'guest') {
+    callback([]);
+    return () => {};
+  }
+
+  const notifQuery = query(collection(db, firebaseCollections.notifications), where('userId', '==', userId));
+
+  return onSnapshot(
+    notifQuery,
+    (snapshot) => {
+      const items = snapshot.docs.map((d) => mapNotification(d.id, d.data()));
+      callback(sortIsoNewestFirst(items));
+    },
+    (error) => {
+      callback([]);
+      onError?.(error);
+    }
+  );
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  if (!notificationId?.trim()) return;
+  await updateDoc(doc(db, firebaseCollections.notifications, notificationId), {
+    isRead: true,
+    updatedAt: serverTimestamp(),
+    updatedBy: actorId(),
+  });
 }
 
 export async function updatePrinterJob(

@@ -10,12 +10,16 @@ interface RoleCapability {
 const capabilities: Record<UserRole, RoleCapability[]> = {
   guest: [
     {
-      title: 'Preview only',
-      description: 'Can view public bio and sample app areas before signing in.',
+      title: 'Explore & scan',
+      description: 'Scan demo QR codes, preview public profiles, try NFC tap simulation, and browse themes.',
     },
     {
-      title: 'No private records',
-      description: 'Cannot create orders, view payouts, or access staff work queues.',
+      title: 'No account saves',
+      description: 'Cannot save profiles, contacts, settings sync, uploads, QR/NFC generation, or wallet passes.',
+    },
+    {
+      title: 'Staff areas blocked',
+      description: 'Sales, printer, admin, and payout tools redirect to the guest consumer experience.',
     },
   ],
   customer: [

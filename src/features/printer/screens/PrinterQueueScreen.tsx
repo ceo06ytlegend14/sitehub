@@ -1,15 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppAvatar } from '@/src/components/AppAvatar';
 import { AppBadge } from '@/src/components/AppBadge';
 import { AppIcon } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
 import { AppEmptyState } from '@/src/components/AppState';
+import { appRoutes } from '@/src/constants/navigation';
 import { theme } from '@/src/constants/theme';
-import { useAuth } from '@/src/hooks/useAuth';
+import { useNotifications } from '@/src/hooks/useNotifications';
 import { usePrinterJobs } from '@/src/hooks/usePrinterJobs';
+import { AppSearchBar, type AppSearchBarHandle } from '@/src/components/AppSearchBar';
+import { searchEmptyMessage, useSearchQuery } from '@/src/hooks/useSearchQuery';
 import { PrinterJob } from '@/src/types/models';
 
 const printerTheme = theme.roles.printer;
@@ -84,21 +86,47 @@ function JobCard({ job }: { job: PrinterJob }) {
 }
 
 export default function PrinterQueueScreen() {
-  const { user } = useAuth();
   const { jobs, isLoading, error } = usePrinterJobs();
+  const { unreadCount } = useNotifications();
   const [tab, setTab] = useState<TabFilter>('all');
-
-  const queueCount = jobs.filter((job) => job.stage !== 'done' && job.stage !== 'failed').length;
-  const readyCount = jobs.filter((job) => job.stage === 'done').length;
+  const searchRef = useRef<AppSearchBarHandle>(null);
+  const {
+    input: searchInput,
+    setInput: setSearchInput,
+    query: searchQuery,
+    submitSearch,
+    clearSearch,
+  } = useSearchQuery();
 
   const filtered = useMemo(() => {
-    if (tab === 'all') return jobs.filter((job) => job.stage !== 'failed');
-    if (tab === 'queued') return jobs.filter((job) => job.stage === 'queued');
-    if (tab === 'printing') {
-      return jobs.filter((job) => job.stage === 'printing' || job.stage === 'nfc_writing' || job.stage === 'nfc_verification');
-    }
-    return jobs.filter((job) => job.stage === 'done');
-  }, [jobs, tab]);
+    const base =
+      tab === 'all'
+        ? jobs.filter((job) => job.stage !== 'failed')
+        : tab === 'queued'
+          ? jobs.filter((job) => job.stage === 'queued')
+          : tab === 'printing'
+            ? jobs.filter(
+                (job) =>
+                  job.stage === 'printing' ||
+                  job.stage === 'nfc_writing' ||
+                  job.stage === 'nfc_verification'
+              )
+            : jobs.filter((job) => job.stage === 'done');
+
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return base;
+
+    return base.filter((job) => {
+      const queue = String(job.queueNumber);
+      const id = job.id.toLowerCase();
+      const orderId = job.orderId.toLowerCase();
+      return (
+        queue.includes(q) ||
+        id.includes(q) ||
+        orderId.includes(q)
+      );
+    });
+  }, [jobs, tab, searchQuery]);
 
   const tabs: { key: TabFilter; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -115,22 +143,37 @@ export default function PrinterQueueScreen() {
             <AppText variant="caption" weight="bold" style={styles.headerSub}>Workshop</AppText>
             <AppText variant="h1" weight="bold" style={styles.headerTitle}>Job Queue</AppText>
           </View>
-          <AppAvatar name={user?.displayName ?? 'Printer'} role="printer" size={46} style={styles.avatar} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            onPress={() => router.push(appRoutes.printer.notifications)}
+            hitSlop={10}
+            style={({ pressed }) => [styles.notifButton, pressed && styles.pressed]}
+          >
+            <View style={styles.notifIconShell}>
+              <AppIcon name="Bell" size={20} color={printerTheme.primary} />
+              {unreadCount > 0 ? (
+                <View style={styles.notifBadge}>
+                  <AppText style={styles.notifBadgeText} numberOfLines={1}>
+                    {unreadCount > 99 ? '99+' : String(unreadCount)}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
+          </Pressable>
         </View>
 
-        <View style={styles.statsPanel}>
-          <View style={styles.statCard}>
-            <AppIcon name="ClipboardList" size={22} color={theme.colors.textInverse} />
-            <AppText style={styles.statNum}>{queueCount}</AppText>
-            <AppText style={styles.statLabel}>In queue</AppText>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCard}>
-            <AppIcon name="ShieldCheck" size={22} color={theme.colors.textInverse} />
-            <AppText style={styles.statNum}>{readyCount}</AppText>
-            <AppText style={styles.statLabel}>Done</AppText>
-          </View>
-        </View>
+        <AppSearchBar
+          ref={searchRef}
+          embedded
+          value={searchInput}
+          onChangeText={setSearchInput}
+          onSearch={submitSearch}
+          onClear={clearSearch}
+          loading={isLoading}
+          role="printer"
+          placeholder="Search by job, order, or ID…"
+        />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
           {tabs.map((item) => {
@@ -138,7 +181,7 @@ export default function PrinterQueueScreen() {
             return (
               <Pressable
                 key={item.key}
-                style={[styles.tabPill, active && styles.tabPillActive]}
+                style={[styles.tabPill, active ? styles.tabPillActive : styles.tabPillIdle]}
                 onPress={() => setTab(item.key)}
               >
                 <AppText variant="caption" weight="bold" style={active ? styles.tabTextActive : styles.tabText}>
@@ -164,8 +207,13 @@ export default function PrinterQueueScreen() {
           <AppEmptyState
             role="printer"
             iconName="ClipboardList"
-            title="Queue is clear"
-            description="No jobs in this category right now."
+            title="No jobs"
+            description={searchEmptyMessage(
+              false,
+              Boolean(searchQuery),
+              searchQuery,
+              tab === 'all' ? 'Queue is clear right now.' : 'No jobs in this category right now.'
+            )}
           />
         ) : (
           filtered.map((job) => <JobCard key={job.id} job={job} />)
@@ -181,13 +229,11 @@ const styles = StyleSheet.create({
     backgroundColor: printerTheme.background,
   },
   header: {
-    backgroundColor: printerTheme.primary,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.sm,
+    backgroundColor: printerTheme.background,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.xs,
     paddingBottom: theme.spacing.md,
-    borderBottomLeftRadius: theme.radius.xl,
-    borderBottomRightRadius: theme.radius.xl,
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   headerTop: {
     flexDirection: 'row',
@@ -200,64 +246,71 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   headerSub: {
-    color: theme.colors.textInverse,
-    opacity: 0.82,
+    color: theme.colors.textMuted,
   },
   headerTitle: {
-    color: theme.colors.textInverse,
+    color: printerTheme.text,
   },
-  avatar: {
-    backgroundColor: printerTheme.primaryDark,
-  },
-  statsPanel: {
-    flexDirection: 'row',
+  notifButton: {
+    width: 46,
+    height: 46,
+    borderRadius: theme.radius.pill,
     alignItems: 'center',
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    ...theme.shadows.control,
   },
-  statCard: {
-    flex: 1,
+  notifIconShell: {
     alignItems: 'center',
-    gap: 3,
+    justifyContent: 'center',
   },
-  statNum: {
+  notifBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -9,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.danger,
+    borderWidth: 2,
+    borderColor: theme.colors.surface,
+  },
+  notifBadgeText: {
     color: theme.colors.textInverse,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '700',
-  },
-  statLabel: {
-    color: theme.colors.textInverse,
-    fontSize: 12,
-    fontWeight: '600',
-    opacity: 0.82,
-  },
-  statDivider: {
-    width: 1,
-    height: 48,
-    backgroundColor: 'rgba(255,255,255,0.28)',
+    fontSize: 9,
+    fontWeight: '800',
+    includeFontPadding: false,
   },
   tabs: {
     gap: theme.spacing.xs,
     paddingRight: theme.spacing.lg,
   },
   tabPill: {
-    height: 36,
+    height: 34,
     borderRadius: theme.radius.pill,
     paddingHorizontal: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  tabPillIdle: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
   },
   tabPillActive: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: printerTheme.primary,
+    borderColor: printerTheme.primary,
   },
   tabText: {
-    color: theme.colors.textInverse,
+    color: theme.colors.textMuted,
   },
   tabTextActive: {
-    color: printerTheme.primaryDark,
+    color: theme.colors.textInverse,
   },
   body: {
     flex: 1,
@@ -269,10 +322,12 @@ const styles = StyleSheet.create({
   },
   jobCard: {
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
     padding: theme.spacing.md,
     gap: theme.spacing.sm,
-    ...theme.shadows.card,
+    ...theme.shadows.control,
   },
   pressed: {
     opacity: 0.78,

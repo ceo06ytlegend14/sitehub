@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { AppButton } from '@/src/components/AppButton';
-import { AppCard } from '@/src/components/AppCard';
-import { AppInput } from '@/src/components/AppInput';
-import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { AppText } from '@/src/components/AppText';
 import { roleOptions } from '@/src/constants/options';
 import { theme } from '@/src/constants/theme';
+import {
+  AuthFooterLink,
+  AuthFormGroup,
+  AuthHeader,
+  AuthPrimaryButton,
+  AuthScreenShell,
+  AuthSectionLabel,
+  AuthTextField,
+} from '@/src/features/auth/components/authUi';
+import { SocialAuthSection } from '@/src/features/auth/SocialAuthSection';
 import { useAuth } from '@/src/hooks/useAuth';
 import { getAuthErrorMessage } from '@/src/services/authService';
-import { UserRole } from '@/src/types/models';
+import { AppUser, UserRole } from '@/src/types/models';
 import { getDashboardRoute } from '@/src/utils/authFlow';
+import { iosDesign, iosPalette } from '@/src/design-system/ios';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,6 +35,10 @@ export function RegisterScreen() {
       router.replace(getDashboardRoute(user));
     }
   }, [isLoading, user]);
+
+  function handleSocialSuccess(signedInUser: AppUser) {
+    router.replace(getDashboardRoute(signedInUser));
+  }
 
   async function handleRegister() {
     const normalizedEmail = email.trim().toLowerCase();
@@ -47,110 +58,137 @@ export function RegisterScreen() {
     }
   }
 
+  const busy = isSubmitting || isLoading;
+
   return (
-    <ScreenContainer>
-      <View style={styles.hero}>
-        <AppText variant="h1">Create Account</AppText>
-        <AppText variant="body" tone="muted">
-          Choose your role to load the right workflow.
-        </AppText>
-      </View>
+    <AuthScreenShell>
+      <AuthHeader
+        title="Create Account"
+        subtitle="Choose your role to load the right workflow."
+      />
 
-      <AppCard>
-        <View style={styles.form}>
-          <AppInput label="Display name" value={displayName} onChangeText={setDisplayName} placeholder="Jane Tan" />
-          <AppInput
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="jane@company.com"
-          />
-          <AppInput
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="At least 6 characters"
-          />
+      <SocialAuthSection disabled={busy} onSuccess={handleSocialSuccess} />
 
-          <View style={styles.roleBlock}>
-            <AppText variant="caption" tone="muted">
-              Role
-            </AppText>
-            <View style={styles.roleRow}>
-              {roleOptions.map((option) => (
-                <Pressable
-                  key={option.value}
-                  style={[styles.roleOption, role === option.value && styles.roleOptionActive]}
-                  onPress={() => setRole(option.value)}
-                  disabled={isSubmitting}
+      <AuthFormGroup>
+        <AuthTextField
+          value={displayName}
+          onChangeText={setDisplayName}
+          placeholder="Display name"
+          editable={!busy}
+          autoCapitalize="words"
+          textContentType="name"
+          autoComplete="name"
+        />
+        <AuthTextField
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Email"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!busy}
+          textContentType="emailAddress"
+          autoComplete="email"
+        />
+        <AuthTextField
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Password (6+ characters)"
+          secureTextEntry
+          editable={!busy}
+          isLast
+          textContentType="newPassword"
+          autoComplete="password-new"
+        />
+      </AuthFormGroup>
+
+      <View style={styles.roleBlock}>
+        <AuthSectionLabel>Role</AuthSectionLabel>
+        <View style={styles.roleGroup}>
+          {roleOptions.map((option, index) => {
+            const selected = role === option.value;
+            const isLast = index === roleOptions.length - 1;
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => setRole(option.value)}
+                disabled={busy}
+                style={({ pressed }) => [
+                  styles.roleRow,
+                  pressed && !busy && styles.rolePressed,
+                  !isLast && styles.roleBorder,
+                ]}
+              >
+                <AppText
+                  style={[styles.roleLabel, selected && styles.roleLabelSelected]}
+                  weight={selected ? 'semibold' : 'medium'}
                 >
-                  <AppText variant="caption" tone={role === option.value ? 'inverse' : 'primary'}>
-                    {option.label}
+                  {option.label}
+                </AppText>
+                {selected ? (
+                  <AppText style={styles.roleCheck} weight="semibold">
+                    ✓
                   </AppText>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          <AppButton
-            label="Create Account"
-            loading={isSubmitting}
-            disabled={isLoading}
-            onPress={handleRegister}
-          />
+                ) : null}
+              </Pressable>
+            );
+          })}
         </View>
-      </AppCard>
-
-      <View style={styles.footer}>
-        <AppText variant="caption" tone="muted">
-          Already have an account?
-        </AppText>
-        <Pressable onPress={() => router.replace('/auth/login')} disabled={isSubmitting}>
-          <AppText variant="caption">Sign in</AppText>
-        </Pressable>
       </View>
-    </ScreenContainer>
+
+      <AuthPrimaryButton
+        label={isSubmitting ? 'Creating…' : 'Create Account'}
+        onPress={handleRegister}
+        loading={isSubmitting}
+        disabled={busy}
+      />
+
+      <AuthFooterLink
+        prompt="Already have an account?"
+        action="Sign in"
+        onPress={() => router.replace('/auth/login')}
+        disabled={busy}
+      />
+    </AuthScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    gap: theme.spacing.xs,
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  form: {
-    gap: theme.spacing.md,
-  },
   roleBlock: {
-    gap: theme.spacing.xs,
+    gap: iosDesign.spacing.xs,
+  },
+  roleGroup: {
+    backgroundColor: iosPalette.light.surface,
+    borderRadius: iosDesign.radius.sm,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    ...theme.shadows.control,
+    shadowOpacity: 0.04,
   },
   roleRow: {
+    minHeight: 44,
+    paddingHorizontal: iosDesign.spacing.md,
     flexDirection: 'row',
-    gap: theme.spacing.xs,
-  },
-  roleOption: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
   },
-  roleOptionActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+  roleBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
+  roleLabel: {
+    fontSize: 17,
+    color: iosPalette.light.textPrimary,
+  },
+  roleLabelSelected: {
+    color: iosPalette.light.primary,
+  },
+  roleCheck: {
+    fontSize: 17,
+    color: iosPalette.light.primary,
+  },
+  rolePressed: {
+    backgroundColor: iosPalette.light.surfaceSoft,
   },
 });

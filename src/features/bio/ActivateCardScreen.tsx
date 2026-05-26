@@ -7,16 +7,21 @@ import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { AppText } from '@/src/components/AppText';
 import { theme } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/useAuth';
+import { useRequireAccount } from '@/src/providers/GuestGateProvider';
 // Fix: use saveNfcWrite instead of removed activateNfcCard/linkCardToBio
 import { saveNfcWrite, updateNfcStatus } from '@/src/services/firestoreService';
 
 export function ActivateCardScreen() {
   const { user } = useAuth();
+  const { requireAccount } = useRequireAccount();
   const [cardCode, setCardCode] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleActivate() {
     if (!user) return;
+    if (!requireAccount(undefined, { message: 'Create an account to activate and link NFC cards.' })) {
+      return;
+    }
     if (!cardCode.trim()) {
       Alert.alert('Card code required', 'Enter the activation code from your card or receipt.');
       return;

@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppAvatar } from '@/src/components/AppAvatar';
 import { AppBadge } from '@/src/components/AppBadge';
 import { AppIcon, type AppIconName } from '@/src/components/AppIcon';
 import { AppEmptyState, AppLoadingState } from '@/src/components/AppState';
@@ -11,6 +10,7 @@ import { appRoutes } from '@/src/constants/navigation';
 import { orderCardStatusOptions, orderStatusOptions, productTypeOptions } from '@/src/constants/options';
 import { theme } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/useAuth';
+import { useNotifications } from '@/src/hooks/useNotifications';
 import { useOrders } from '@/src/hooks/useOrders';
 import { usePreferences } from '@/src/hooks/usePreferences';
 import { Order } from '@/src/types/models';
@@ -34,56 +34,19 @@ function StatChip({ label, value, iconName }: StatChipProps) {
   const { colors } = usePreferences();
 
   return (
-    <View style={[styles.statChip, { backgroundColor: colors.surfaceSoft, borderColor: colors.border }]}>
+    <View style={[styles.statChip, { backgroundColor: colors.surfaceSoft }]}>
       <View style={[styles.statIcon, { backgroundColor: colors.primarySoft }]}>
         <AppIcon name={iconName} size={17} color={colors.primary} />
       </View>
       <View style={styles.statCopy}>
-        <AppText variant="caption" tone="muted" weight="medium" numberOfLines={1}>
+        <AppText variant="caption" tone="muted" weight="semibold" numberOfLines={1}>
           {label}
         </AppText>
-        <AppText style={styles.statValue} weight="bold" numberOfLines={1} adjustsFontSizeToFit>
+        <AppText style={styles.statValue} weight="bold" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
           {value}
         </AppText>
       </View>
     </View>
-  );
-}
-
-interface QuickActionProps {
-  label: string;
-  iconName: AppIconName;
-  primary?: boolean;
-  onPress: () => void;
-}
-
-function QuickAction({ label, iconName, primary = false, onPress }: QuickActionProps) {
-  const { colors } = usePreferences();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      style={({ pressed }) => [
-        styles.quickAction,
-        {
-          backgroundColor: primary ? colors.primary : colors.surface,
-          borderColor: primary ? colors.primary : colors.border,
-        },
-        pressed && styles.pressed,
-      ]}
-      onPress={onPress}
-    >
-      <AppIcon name={iconName} size={18} color={primary ? colors.textInverse : colors.primary} />
-      <AppText
-        variant="caption"
-        weight="bold"
-        tone={primary ? 'inverse' : 'primary'}
-        numberOfLines={1}
-        style={styles.quickActionLabel}
-      >
-        {label}
-      </AppText>
-    </Pressable>
   );
 }
 
@@ -97,7 +60,7 @@ function OrderRow({ order }: { order: Order }) {
     <Pressable
       style={({ pressed }) => [
         styles.orderCard,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.surface },
         pressed && styles.orderCardPressed,
       ]}
       onPress={() => router.push({ pathname: appRoutes.orderDetail, params: { orderId: order.id } })}
@@ -132,6 +95,7 @@ export default function SalesDashboardScreen() {
   const { user } = useAuth();
   const { orders, isLoading, refresh } = useOrders('sales', user?.id ?? '');
   const { colors } = usePreferences();
+  const { unreadCount } = useNotifications();
 
   useEffect(() => {
     refresh();
@@ -166,7 +130,7 @@ export default function SalesDashboardScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <View style={styles.headerShell}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.header, { backgroundColor: colors.surface }]}>
           <View style={styles.headerTop}>
             <View style={styles.headerCopy}>
               <View style={[styles.rolePill, { backgroundColor: colors.primarySoft }]}>
@@ -179,19 +143,35 @@ export default function SalesDashboardScreen() {
                 {user?.displayName ?? 'Orders'}
               </AppText>
             </View>
-            <AppAvatar name={user?.displayName ?? 'Sales'} role="sales" size={42} style={styles.avatar} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              hitSlop={10}
+              onPress={() => router.push(appRoutes.sales.notifications)}
+              style={({ pressed }) => [
+                styles.notifButton,
+                {
+                  backgroundColor: colors.surfaceSoft,
+                  opacity: pressed ? 0.86 : 1,
+                },
+              ]}
+            >
+              <View style={styles.notifIconShell}>
+                <AppIcon name="Bell" size={20} color={colors.primary} />
+                {unreadCount > 0 ? (
+                  <View style={styles.notifBadge}>
+                    <AppText style={styles.notifBadgeText} numberOfLines={1}>
+                      {unreadCount > 99 ? '99+' : String(unreadCount)}
+                    </AppText>
+                  </View>
+                ) : null}
+              </View>
+            </Pressable>
           </View>
 
           <View style={styles.statGrid}>
             <StatChip label="Unrealized" value={formatMoney(unrealized)} iconName="CircleDollarSign" />
             <StatChip label="Commission" value={formatMoney(realized)} iconName="Wallet" />
-            <StatChip label="Open" value={`${activeOrders.length}`} iconName="ClipboardList" />
-          </View>
-
-          <View style={styles.quickActions}>
-            <QuickAction label="Create" iconName="Plus" primary onPress={() => router.push(appRoutes.sales.newOrder)} />
-            <QuickAction label="Pipeline" iconName="ClipboardList" onPress={() => router.push(appRoutes.sales.orders)} />
-            <QuickAction label="Payouts" iconName="Wallet" onPress={() => router.push(appRoutes.sales.payouts)} />
           </View>
         </View>
       </View>
@@ -201,7 +181,7 @@ export default function SalesDashboardScreen() {
           accessibilityRole="button"
           style={({ pressed }) => [
             styles.recommendation,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.surface },
             pressed && styles.pressed,
           ]}
           onPress={() => router.push(recommendation.route)}
@@ -262,7 +242,6 @@ const styles = StyleSheet.create({
   },
   header: {
     borderRadius: theme.radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
     padding: theme.spacing.sm,
     gap: theme.spacing.xs,
     ...theme.shadows.card,
@@ -273,6 +252,38 @@ const styles = StyleSheet.create({
   },
   avatar: {
     backgroundColor: theme.colors.primary,
+  },
+  notifButton: {
+    width: 42,
+    height: 42,
+    borderRadius: theme.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.control,
+  },
+  notifIconShell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: -7,
+    right: -9,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.danger,
+    borderWidth: 2,
+    borderColor: theme.colors.surface,
+  },
+  notifBadgeText: {
+    color: theme.colors.textInverse,
+    fontSize: 9,
+    fontWeight: '800',
+    includeFontPadding: false,
   },
   headerTop: {
     flexDirection: 'row',
@@ -303,11 +314,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 88,
     borderRadius: theme.radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   statIcon: {
     width: 28,
@@ -322,11 +333,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statValue: {
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 24,
+    lineHeight: 28,
+    letterSpacing: -0.4,
   },
   recommendation: {
-    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: theme.radius.lg,
     padding: theme.spacing.sm,
     flexDirection: 'row',
@@ -345,25 +356,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: 2,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.xs,
-  },
-  quickAction: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: theme.radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: theme.spacing.xs,
-    ...theme.shadows.control,
-  },
-  quickActionLabel: {
-    fontSize: 12,
   },
   pressed: {
     opacity: 0.86,
@@ -387,7 +379,6 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     borderRadius: theme.radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
     padding: theme.spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',

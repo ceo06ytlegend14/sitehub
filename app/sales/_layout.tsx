@@ -13,6 +13,7 @@ export default function SalesLayout() {
         <Tabs.Screen name="orders" options={{ title: 'Orders' }} />
         <Tabs.Screen name="payouts" options={{ title: 'Payouts' }} />
         <Tabs.Screen name="me" options={{ title: 'Me' }} />
+        <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="new-order" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>

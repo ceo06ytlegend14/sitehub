@@ -6,11 +6,12 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "biocloud",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.biocloud.nativeapp",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs camera access to scan QR codes."
       }
@@ -28,7 +29,8 @@
       "expo-router",
       "expo-font",
       "expo-image-picker",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

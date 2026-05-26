@@ -23,10 +23,14 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
   const [isReady, setIsReady] = useState(false);
   const preferencesRef = useRef(preferences);
   preferencesRef.current = preferences;
+  const persistQueueRef = useRef(Promise.resolve());
 
   useEffect(() => {
     getUiPreferences()
-      .then((stored) => setPreferences(stored))
+      .then((stored) => {
+        preferencesRef.current = stored;
+        setPreferences(stored);
+      })
       .finally(() => setIsReady(true));
   }, []);
 
@@ -39,11 +43,15 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
       isReady,
       async updatePreferences(next) {
         const previous = preferencesRef.current;
-        const updated = { ...previous, ...next };
+        const updated = { ...preferencesRef.current, ...next };
         preferencesRef.current = updated;
         setPreferences(updated);
+
+        const persist = persistQueueRef.current.then(() => setUiPreferences(preferencesRef.current));
+        persistQueueRef.current = persist.catch(() => undefined);
+
         try {
-          await setUiPreferences(updated);
+          await persist;
         } catch (error) {
           preferencesRef.current = previous;
           setPreferences(previous);
@@ -51,11 +59,17 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         }
       },
       async resetPreferences() {
-        const previous = preferences;
+        const previous = preferencesRef.current;
+        preferencesRef.current = defaultUiPreferences;
         setPreferences(defaultUiPreferences);
+
+        const persist = persistQueueRef.current.then(() => resetUiPreferences());
+        persistQueueRef.current = persist.catch(() => undefined);
+
         try {
-          await resetUiPreferences();
+          await persist;
         } catch (error) {
+          preferencesRef.current = previous;
           setPreferences(previous);
           throw error;
         }

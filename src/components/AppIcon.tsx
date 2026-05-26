@@ -2,7 +2,7 @@
  * AppIcon - shared icon component using Solar Icons.
  */
 
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ComponentType } from 'react';
 import {
   AddCircle,
   AltArrowLeft,
@@ -76,8 +76,8 @@ import Svg, { Path } from 'react-native-svg';
 import { usePreferences } from '@/src/hooks/usePreferences';
 
 const DEFAULT_ICON_SIZE = 22;
-type SolarIcon = typeof Archive;
-type SolarIconProps = ComponentProps<SolarIcon>;
+type SolarIconProps = ComponentProps<typeof Archive>;
+type SolarIcon = ComponentType<SolarIconProps>;
 
 /** Plain plus for filled circular buttons (avoids circle-on-circle from AddCircle). */
 function PlusSimple({ size = DEFAULT_ICON_SIZE, color = 'currentColor' }: SolarIconProps) {

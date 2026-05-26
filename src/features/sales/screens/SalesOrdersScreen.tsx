@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppBadge } from '@/src/components/AppBadge';
+import { AppSearchBar } from '@/src/components/AppSearchBar';
 import { AppEmptyState, AppLoadingState } from '@/src/components/AppState';
 import { AppHeader } from '@/src/components/AppHeader';
 import { AppIcon } from '@/src/components/AppIcon';
@@ -12,6 +13,7 @@ import { orderCardStatusOptions, orderStatusOptions, productTypeOptions } from '
 import { theme } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/useAuth';
 import { useOrders } from '@/src/hooks/useOrders';
+import { useSearchQuery } from '@/src/hooks/useSearchQuery';
 import { Order } from '@/src/types/models';
 
 const salesTheme = theme.roles.sales;
@@ -83,13 +85,52 @@ function OrderCard({ order }: { order: Order }) {
   );
 }
 
+type OrderFilterKey = 'all' | 'pending' | 'active' | 'done';
+
+const ORDER_FILTERS: { key: OrderFilterKey; label: string; statuses?: Order['status'][] }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending', statuses: ['new', 'design'] },
+  { key: 'active', label: 'Active', statuses: ['printing', 'nfc_writing', 'nfc_verification'] },
+  { key: 'done', label: 'Done', statuses: ['ready', 'delivered'] },
+];
+
+function includesLoose(haystack: string, needle: string) {
+  return haystack.toLowerCase().includes(needle.toLowerCase());
+}
+
+function orderMatchesQuery(order: Order, query: string) {
+  if (!query) return true;
+  const q = query.trim().toLowerCase();
+  const statusLabel = orderStatusOptions.find((o) => o.value === order.status)?.label ?? order.status;
+
+  return (
+    includesLoose(order.id, q)
+    || includesLoose(order.id.slice(0, 8), q)
+    || includesLoose(order.customerName ?? '', q)
+    || includesLoose(order.phone ?? '', q)
+    || includesLoose(order.cardCode ?? '', q)
+    || includesLoose(order.status ?? '', q)
+    || includesLoose(statusLabel, q)
+  );
+}
+
 export default function SalesOrdersScreen() {
   const { user } = useAuth();
   const { orders, isLoading, refresh } = useOrders('sales', user?.id ?? '');
+  const { input, setInput, query, submitSearch, clearSearch } = useSearchQuery();
+  const [filter, setFilter] = useState<OrderFilterKey>('all');
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const filtered = useMemo(() => {
+    return orders.filter((order) => {
+      const statuses = ORDER_FILTERS.find((f) => f.key === filter)?.statuses;
+      const statusOk = !statuses || statuses.includes(order.status);
+      return statusOk && orderMatchesQuery(order, query);
+    });
+  }, [filter, orders, query]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -101,18 +142,51 @@ export default function SalesOrdersScreen() {
         onActionPress={() => router.push(appRoutes.sales.newOrder)}
       />
 
+      <AppSearchBar
+        value={input}
+        onChangeText={setInput}
+        onSearch={submitSearch}
+        onClear={clearSearch}
+        role="sales"
+        placeholder="Search by order ID, customer, phone, card code, status…"
+      />
+
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.filtersRow}>
+          {ORDER_FILTERS.map((opt) => {
+            const active = opt.key === filter;
+            return (
+              <Pressable
+                key={opt.key}
+                onPress={() => setFilter(opt.key)}
+                style={[
+                  styles.filterPill,
+                  active ? styles.filterPillActive : styles.filterPillIdle,
+                ]}
+              >
+                <AppText style={[styles.filterText, active ? styles.filterTextActive : styles.filterTextIdle]}>
+                  {opt.label}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {isLoading ? (
           <AppLoadingState title="Loading orders..." role="sales" />
-        ) : orders.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <AppEmptyState
-            title="No orders yet"
-            description="Create the first customer order from this sales account."
+            title={query ? 'No matching orders' : 'No orders yet'}
+            description={
+              query
+                ? `No results for "${query}". Try a different keyword or switch filters.`
+                : 'Create the first customer order from this sales account.'
+            }
             iconName="ClipboardList"
             role="sales"
           />
         ) : (
-          orders.map((order) => <OrderCard key={order.id} order={order} />)
+          filtered.map((order) => <OrderCard key={order.id} order={order} />)
         )}
       </ScrollView>
     </SafeAreaView>
@@ -128,6 +202,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingBottom: 120,
     gap: theme.spacing.sm,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: theme.radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  filterPillIdle: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+  },
+  filterPillActive: {
+    backgroundColor: salesTheme.primary,
+    borderColor: salesTheme.primary,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  filterTextIdle: {
+    color: theme.colors.textMuted,
+  },
+  filterTextActive: {
+    color: theme.colors.textInverse,
   },
   card: {
     backgroundColor: theme.colors.surface,

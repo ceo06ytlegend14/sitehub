@@ -1,6 +1,11 @@
+import { GuestGate } from '@/src/components/GuestGate';
 import { EditBioScreen } from '@/src/features/bio/EditBioScreen';
 
 export default function EditBioRoute() {
-  return <EditBioScreen />;
+  return (
+    <GuestGate>
+      <EditBioScreen />
+    </GuestGate>
+  );
 }
 

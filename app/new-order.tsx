@@ -1,6 +1,11 @@
-import { NewOrderScreen } from '@/src/features/orders/NewOrderScreen';
+import { GuestGate } from '@/src/components/GuestGate';
+import { NewOrderScreen } from '@/src/features/orders/NewOrderScreen2';
 
 export default function NewOrderRoute() {
-  return <NewOrderScreen />;
+  return (
+    <GuestGate>
+      <NewOrderScreen />
+    </GuestGate>
+  );
 }
 

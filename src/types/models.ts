@@ -207,3 +207,18 @@ export interface UiPreferences {
   colorMode: 'light' | 'dark';
   typographyColor: TypographyColorKey;
 }
+
+// ─── Notifications ─────────────────────────────────────────────────────────────
+
+export type NotificationPriority = 'low' | 'medium' | 'high';
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+  userId?: string;
+  priority?: NotificationPriority;
+  actionUrl?: string;
+}

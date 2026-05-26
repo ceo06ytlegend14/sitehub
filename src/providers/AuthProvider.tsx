@@ -1,4 +1,4 @@
-import { PropsWithChildren, createContext, useEffect, useRef, useState } from 'react';
+import { PropsWithChildren, createContext, useCallback, useEffect, useRef, useState } from 'react';
 import {
   getAuthErrorMessage,
   getUserProfile,
@@ -12,6 +12,21 @@ import { AppUser } from '@/src/types/models';
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function createGuestUser(): AppUser {
+  const now = new Date().toISOString();
+  return {
+    id: 'guest',
+    email: '',
+    displayName: 'Guest User',
+    role: 'guest',
+    language: 'en',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+    isGuest: true,
+  };
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +36,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const managedUser = useRef<AppUser | null>(null);
   const isSigningOut = useRef(false);
 
+  const applyGuestSession = useCallback(() => {
+    const guestUser = managedUser.current?.isGuest ? managedUser.current : createGuestUser();
+    managedUser.current = guestUser;
+    setUser(guestUser);
+    setError(null);
+    setIsLoading(false);
+  }, []);
+
   useEffect(() => {
     const unsubscribe = observeAuthState(async (firebaseUser) => {
       if (isSigningOut.current) {
@@ -29,14 +52,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      // Important: only restore managed user if it is guest
       if (managedUser.current?.isGuest) {
-        setUser(managedUser.current);
-        setIsLoading(false);
+        applyGuestSession();
         return;
       }
 
       if (!firebaseUser) {
+        if (managedUser.current?.isGuest) {
+          applyGuestSession();
+          return;
+        }
         managedUser.current = null;
         setUser(null);
         setError(null);
@@ -46,6 +71,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       try {
         const profile = await getUserProfile(firebaseUser.uid);
+
+        if (managedUser.current?.isGuest) {
+          applyGuestSession();
+          return;
+        }
 
         if (profile?.isActive === false) {
           await signOutCurrentUser();
@@ -73,6 +103,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setError(null);
         }
       } catch {
+        if (managedUser.current?.isGuest) {
+          applyGuestSession();
+          return;
+        }
+
         setUser({
           id: firebaseUser.uid,
           email: firebaseUser.email ?? '',
@@ -85,12 +120,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
         });
         setError(null);
       } finally {
-        setIsLoading(false);
+        if (!managedUser.current?.isGuest) {
+          setIsLoading(false);
+        }
       }
     });
 
     return unsubscribe;
-  }, []);
+  }, [applyGuestSession]);
 
   const value: AuthContextValue = {
     user,
@@ -136,25 +173,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     },
 
     async signInAsGuest() {
-      const now = new Date().toISOString();
-
-      const guestUser: AppUser = {
-        id: 'guest',
-        email: '',
-        displayName: 'Guest User',
-        role: 'guest',
-        language: 'en',
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-        isGuest: true,
-      };
-
       isSigningOut.current = false;
-      managedUser.current = guestUser;
-      setUser(guestUser);
-      setError(null);
-      setIsLoading(false);
+      applyGuestSession();
+
+      try {
+        await signOutCurrentUser();
+      } catch {
+        // Guest session is local; Firebase sign-out is best-effort cleanup.
+      }
     },
 
     async signOutUser() {

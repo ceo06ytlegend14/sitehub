@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { AppCard } from '@/src/components/AppCard';
 import { AppHeader } from '@/src/components/AppHeader';
 import { AppIcon } from '@/src/components/AppIcon';
@@ -12,6 +12,8 @@ import { languageOptions, profileThemeOptions, typographyColorOptions } from '@/
 import { theme } from '@/src/constants/theme';
 import { useAppTheme } from '@/src/hooks/useAppTheme';
 import { useAuth } from '@/src/hooks/useAuth';
+import { useIsGuest } from '@/src/hooks/useIsGuest';
+import { useRequireAccount } from '@/src/providers/GuestGateProvider';
 import { ProfileTheme, TypographyColorKey, UiPreferences } from '@/src/types/models';
 import {
   getRoleCapabilities,
@@ -22,7 +24,6 @@ import {
 type SavingKey =
   | 'language'
   | 'profileTheme'
-  | 'colorMode'
   | 'typographyColor'
   | 'reset'
   | 'signOut'
@@ -31,13 +32,16 @@ type Message = { type: 'success' | 'error'; text: string } | null;
 
 export function SettingsScreen() {
   const { signOutUser, user } = useAuth();
+  const isGuest = useIsGuest();
+  const { requireAccount } = useRequireAccount();
   const { preferences, colors, updatePreferences, resetPreferences, isReady } = useAppTheme();
   const [savingKey, setSavingKey] = useState<SavingKey>(null);
   const [message, setMessage] = useState<Message>(null);
   const showBack = router.canGoBack();
 
   const isBusy = savingKey !== null;
-  const controlsDisabled = !isReady || isBusy;
+  const controlsDisabled = !isReady;
+  const isSaving = (key: Exclude<SavingKey, null>) => savingKey === key;
   const capabilities = getRoleCapabilities(user?.role);
   const roleLabel = getRoleLabel(user?.role);
   const languageLabel =
@@ -53,7 +57,10 @@ export function SettingsScreen() {
     next: Partial<UiPreferences>,
     label: string
   ) {
-    if (!isReady || isBusy) return;
+    if (!requireAccount(undefined, { message: 'Create an account to save settings and sync preferences.' })) {
+      return;
+    }
+    if (!isReady || savingKey === key) return;
 
     setSavingKey(key);
     setMessage(null);
@@ -69,6 +76,9 @@ export function SettingsScreen() {
   }
 
   async function performReset() {
+    if (!requireAccount(undefined, { message: 'Create an account to save settings.' })) {
+      return;
+    }
     if (isBusy) return;
 
     setSavingKey('reset');
@@ -87,7 +97,7 @@ export function SettingsScreen() {
   function handleReset() {
     Alert.alert(
       'Reset settings?',
-      'Language, theme, appearance, and text color will return to defaults.',
+      'Language, theme, and text color will return to defaults.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Reset', style: 'destructive', onPress: () => void performReset() },
@@ -114,9 +124,17 @@ export function SettingsScreen() {
     <ScreenContainer>
       <AppHeader
         title="Settings"
-        subtitle="Account & appearance"
+        subtitle={isGuest ? 'Preview — changes are not saved' : 'Account & appearance'}
         showBack={showBack}
       />
+
+      {isGuest ? (
+        <View style={[styles.message, { backgroundColor: colors.surfaceSoft }]}>
+          <AppText variant="caption" style={{ color: colors.primary, fontWeight: '700' }}>
+            Guest mode: explore appearance options. Sign up to save settings to your account.
+          </AppText>
+        </View>
+      ) : null}
 
       {!isReady ? (
         <AppText variant="body" tone="muted">
@@ -128,12 +146,17 @@ export function SettingsScreen() {
         <View
           style={[
             styles.message,
-            message.type === 'error' ? styles.messageError : styles.messageSuccess,
+            {
+              backgroundColor: message.type === 'error' ? colors.surfaceSoft : colors.primarySoft,
+            },
           ]}
         >
           <AppText
             variant="caption"
-            style={message.type === 'error' ? styles.messageErrorText : styles.messageSuccessText}
+            style={{
+              color: message.type === 'error' ? theme.colors.danger : colors.primary,
+              fontWeight: '700',
+            }}
           >
             {message.text}
           </AppText>
@@ -216,7 +239,7 @@ export function SettingsScreen() {
               label: option.label,
               value: option.value,
             }))}
-            disabled={controlsDisabled}
+            disabled={controlsDisabled || isSaving('language')}
             onChange={(value) => void savePreference('language', { language: value }, 'Language')}
           />
           <AppSelect<ProfileTheme>
@@ -228,7 +251,7 @@ export function SettingsScreen() {
               value: option.value,
               leading: <View style={[styles.themeSwatch, { backgroundColor: option.accent }]} />,
             }))}
-            disabled={controlsDisabled}
+            disabled={controlsDisabled || isSaving('profileTheme')}
             onChange={(value) =>
               void savePreference('profileTheme', { profileTheme: value }, 'Profile theme')
             }
@@ -242,36 +265,10 @@ export function SettingsScreen() {
               value: option.value,
               leading: <View style={[styles.swatchDot, { backgroundColor: option.color }]} />,
             }))}
-            disabled={controlsDisabled}
+            disabled={controlsDisabled || isSaving('typographyColor')}
             onChange={(value) =>
               void savePreference('typographyColor', { typographyColor: value }, 'Text color')
             }
-          />
-        </View>
-      </AppCard>
-
-      <AppCard>
-        <View style={styles.sectionHeader}>
-          <AppIcon name="Sparkles" size={20} color={colors.primary} />
-          <AppText variant="h2">Appearance</AppText>
-        </View>
-        <View style={[styles.appearanceRow, { backgroundColor: colors.surfaceSoft }]}>
-          <View style={styles.appearanceCopy}>
-            <AppText variant="body" style={styles.appearanceTitle}>
-              Dark mode
-            </AppText>
-            <AppText variant="caption" tone="muted">
-              {preferences.colorMode === 'dark' ? 'On — darker backgrounds app-wide' : 'Off — light backgrounds'}
-            </AppText>
-          </View>
-          <Switch
-            value={preferences.colorMode === 'dark'}
-            disabled={controlsDisabled}
-            onValueChange={(enabled) =>
-              void savePreference('colorMode', { colorMode: enabled ? 'dark' : 'light' }, 'Appearance')
-            }
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={colors.surface}
           />
         </View>
       </AppCard>
@@ -291,7 +288,7 @@ export function SettingsScreen() {
               Reset Local Settings
             </AppText>
             <AppText variant="caption" tone="muted">
-              Restore language, theme, appearance, and text color defaults.
+              Restore language, theme, and text color defaults.
             </AppText>
           </View>
           <AppText variant="caption" style={[styles.actionText, { color: colors.primary }]}>
@@ -301,7 +298,12 @@ export function SettingsScreen() {
         <Pressable
           disabled={isBusy}
           onPress={() => void performSignOut()}
-          style={[styles.actionRow, styles.signOutRow, isBusy && styles.optionDisabled]}
+          style={[
+            styles.actionRow,
+            styles.signOutRow,
+            { borderTopColor: colors.border },
+            isBusy && styles.optionDisabled,
+          ]}
         >
           <View style={styles.actionCopy}>
             <AppText variant="body" style={styles.signOutText}>
@@ -326,20 +328,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     ...theme.shadows.card,
-  },
-  messageSuccess: {
-    backgroundColor: '#E9F9F2',
-  },
-  messageError: {
-    backgroundColor: '#FDEDEC',
-  },
-  messageSuccessText: {
-    color: '#167B51',
-    fontWeight: '700',
-  },
-  messageErrorText: {
-    color: theme.colors.danger,
-    fontWeight: '700',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -414,21 +402,6 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
   },
-  appearanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  appearanceCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  appearanceTitle: {
-    fontWeight: '700',
-  },
   optionDisabled: {
     opacity: 0.55,
   },
@@ -443,7 +416,6 @@ const styles = StyleSheet.create({
   signOutRow: {
     marginTop: theme.spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(15, 58, 58, 0.12)',
     paddingTop: theme.spacing.md,
   },
   actionCopy: {

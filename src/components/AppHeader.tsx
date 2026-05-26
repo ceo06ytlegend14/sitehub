@@ -11,6 +11,7 @@ interface AppHeaderProps {
   subtitle?: string;
   role?: RoleThemeKey;
   showBack?: boolean;
+  onBackPress?: () => void;
   actionIcon?: AppIconName;
   onActionPress?: () => void;
   avatarName?: string;
@@ -22,6 +23,7 @@ export function AppHeader({
   subtitle,
   role = 'default',
   showBack = false,
+  onBackPress,
   actionIcon,
   onActionPress,
   avatarName,
@@ -29,7 +31,9 @@ export function AppHeader({
 }: AppHeaderProps) {
   const { colors } = usePreferences();
   const roleTheme = getRoleTheme(role);
-  const backgroundColor = role === 'admin' ? roleTheme.background : colors.background;
+  const backgroundColor = colors.background;
+  const titleColor = colors.typographyColor;
+  const subtitleColor = colors.textMuted;
   const iconButtonStyle = {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -38,18 +42,18 @@ export function AppHeader({
   return (
     <View style={[styles.header, { backgroundColor }, style]}>
       {showBack ? (
-        <Pressable style={[styles.iconButton, iconButtonStyle]} onPress={() => router.back()} hitSlop={12}>
+        <Pressable style={[styles.iconButton, iconButtonStyle]} onPress={onBackPress ?? (() => router.back())} hitSlop={12}>
           <AppIcon name="ChevronLeft" size={22} color={colors.primary} />
         </Pressable>
       ) : null}
 
       <View style={styles.copy}>
         {subtitle ? (
-          <AppText variant="caption" weight="bold" style={{ color: roleTheme.primary }}>
+          <AppText variant="caption" weight="medium" style={{ color: subtitleColor }}>
             {subtitle}
           </AppText>
         ) : null}
-        <AppText variant="h1" weight="bold" style={[styles.title, { color: roleTheme.text }]} numberOfLines={1}>
+        <AppText variant="h1" weight="bold" style={[styles.title, { color: titleColor }]} numberOfLines={1}>
           {title}
         </AppText>
       </View>
@@ -70,9 +74,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
   },
   copy: {
     flex: 1,

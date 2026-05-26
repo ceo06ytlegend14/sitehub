@@ -13,10 +13,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppHeader } from '@/src/components/AppHeader';
 import { AppIcon } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
+import { IosFormActionFooter } from '@/src/components/IosFormActionFooter';
+import { SettingsGroup, SettingsSection } from '@/src/components/SettingsGroup';
+import { iosDesign } from '@/src/design-system/ios';
+import { useAppTheme } from '@/src/hooks/useAppTheme';
 import { cardDesignOptions, paymentMethodOptions, productTypeOptions } from '@/src/constants/options';
 import { useAuth } from '@/src/hooks/useAuth';
+import { useRequireAccount } from '@/src/providers/GuestGateProvider';
 import { createOrder } from '@/src/services/firestoreService';
 import { getAuthErrorMessage } from '@/src/services/authService';
 import { uploadOrderArtwork } from '@/src/services/orderArtworkService';
@@ -26,7 +32,6 @@ import { theme } from '@/src/constants/theme';
 
 const salesTheme = theme.roles.sales;
 const PINK = salesTheme.primary;
-const PINK_DARK = salesTheme.primaryDark;
 const INK = '#1A0A12';
 
 type ProductValue = typeof productTypeOptions[number]['value'];
@@ -82,32 +87,32 @@ const PAYMENT_STATUS_OPTIONS: { label: string; value: PaymentStatus; color: stri
   { label: 'Paid', value: 'paid', color: '#2BC48A' },
 ];
 
-function SectionHeader({
-  icon,
+function FormSection({
   title,
+  children,
 }: {
-  icon: React.ComponentProps<typeof AppIcon>['name'];
   title: string;
+  children: React.ReactNode;
 }) {
   return (
-    <View style={sh.row}>
-      <AppIcon name={icon} size={18} color={PINK} />
-      <AppText style={sh.title}>{title}</AppText>
+    <View style={formSectionStyles.wrap}>
+      <SettingsSection title={title} compact />
+      <SettingsGroup compact>
+        <View style={formSectionStyles.body}>{children}</View>
+      </SettingsGroup>
     </View>
   );
 }
 
-const sh = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0C0DC',
-    marginBottom: 14,
+const formSectionStyles = StyleSheet.create({
+  wrap: {
+    gap: 0,
   },
-  title: { fontSize: 16, fontWeight: '700', color: INK },
+  body: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.sm + 2,
+  },
 });
 
 function PillPicker<T extends string>({
@@ -392,6 +397,8 @@ function CardPreview({
 
 export function NewOrderScreen() {
   const { user } = useAuth();
+  const { requireAccount } = useRequireAccount();
+  const { colors } = useAppTheme();
   const { width } = useWindowDimensions();
   const [step, setStep] = useState(1);
   const totalSteps = 3;
@@ -424,6 +431,7 @@ export function NewOrderScreen() {
 
   const [saving, setSaving] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<SubmitMessage>(null);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
   const selectedProduct = productTypeOptions.find((p) => p.value === product)!;
   const qty = Math.max(1, parseInt(quantity, 10) || 1);
@@ -489,15 +497,16 @@ export function NewOrderScreen() {
   }
 
   async function handleSubmit() {
-    if (saving) return;
-    if (!user || user.isGuest) {
-      Alert.alert('Sign in required', 'Please sign in as sales staff.');
+    if (saving || createdOrderId) return;
+    if (!requireAccount(undefined, { message: 'Create an account to submit orders and save customer records.' })) {
       return;
     }
+    if (!user) return;
     if (!validate()) return;
 
     setSaving(true);
     setSubmitMessage(null);
+    setCreatedOrderId(null);
     try {
       let artworkUpload: Awaited<ReturnType<typeof uploadOrderArtwork>> | undefined;
       if (customArtwork) {
@@ -546,6 +555,7 @@ export function NewOrderScreen() {
       );
 
       setSubmitMessage({ type: 'success', text: 'Order created and sent to the printer queue.' });
+      setCreatedOrderId(orderId);
       setSaving(false);
       Alert.alert('Order created', 'The order is now in the printer queue.', [
         { text: 'New Order', onPress: resetForm },
@@ -583,6 +593,12 @@ export function NewOrderScreen() {
     setDeliveryAddress('');
     setNotes('');
     setSubmitMessage(null);
+    setCreatedOrderId(null);
+  }
+
+  function viewCreatedOrder() {
+    if (!createdOrderId) return;
+    router.replace({ pathname: '/order-detail/[orderId]', params: { orderId: createdOrderId } });
   }
 
   function confirmReset() {
@@ -593,39 +609,46 @@ export function NewOrderScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => (step > 1 ? setStep((s) => s - 1) : router.back())}
-          style={styles.backBtn}
-          hitSlop={12}
-        >
-          <AppIcon name="ChevronLeft" size={22} color="#fff" />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <AppText style={styles.headerTitle}>New Order</AppText>
-          <AppText style={styles.headerSub}>Create NFC card orders for print queue</AppText>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      <AppHeader
+        title="New Order"
+        subtitle={`Step ${step} of ${totalSteps}`}
+        role="sales"
+        showBack
+        onBackPress={() => (step > 1 ? setStep((s) => s - 1) : router.back())}
+      />
+
+      <View style={[styles.progressShell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.progressTrack, { backgroundColor: colors.surfaceSoft }]}>
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${(step / totalSteps) * 100}%`, backgroundColor: colors.primary },
+            ]}
+          />
         </View>
-        <AppText style={styles.stepLabel}>Step {step}/{totalSteps}</AppText>
+        <View style={styles.stepLabels}>
+          {['Customer', 'Product', 'Payment'].map((label, i) => (
+            <AppText
+              key={label}
+              variant="caption"
+              weight={i + 1 === step ? 'bold' : 'medium'}
+              style={{ color: i + 1 === step ? colors.primary : colors.textMuted }}
+            >
+              {label}
+            </AppText>
+          ))}
+        </View>
       </View>
 
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${(step / totalSteps) * 100}%` as any }]} />
-      </View>
-
-      <View style={styles.stepLabels}>
-        {['Customer', 'Product', 'Payment'].map((label, i) => (
-          <AppText key={label} style={[styles.stepLabelText, i + 1 === step && styles.stepLabelActive]}>
-            {label}
-          </AppText>
-        ))}
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentInsetAdjustmentBehavior="automatic"
+      >
         {step === 1 && (
-          <View style={styles.card}>
-            <SectionHeader icon="User" title="Customer Information" />
-            <View style={styles.fields}>
+          <FormSection title="Customer Information">
               <Field label="Customer Name" required>
                 <TextInput
                   style={inputStyle}
@@ -701,15 +724,12 @@ export function NewOrderScreen() {
                   </Field>
                 </View>
               </View>
-            </View>
-          </View>
+          </FormSection>
         )}
 
         {step === 2 && (
           <>
-            <View style={styles.card}>
-              <SectionHeader icon="CreditCard" title="Product Details" />
-              <View style={styles.fields}>
+            <FormSection title="Product Details">
                 <Field label="Product Type" required>
                   <View style={styles.productGrid}>
                     {productTypeOptions.map((opt) => (
@@ -828,15 +848,12 @@ export function NewOrderScreen() {
                     />
                   </Field>
                 ) : null}
-              </View>
-            </View>
+            </FormSection>
           </>
         )}
 
         {step === 3 && (
-          <View style={styles.card}>
-            <SectionHeader icon="Wallet" title="Payment & Delivery" />
-            <View style={styles.fields}>
+          <FormSection title="Payment & Delivery">
               <Field label="Payment Status" required>
                 <PillPicker options={PAYMENT_STATUS_OPTIONS} value={paymentStatus} onChange={setPaymentStatus} />
               </Field>
@@ -921,44 +938,63 @@ export function NewOrderScreen() {
                   </View>
                 ))}
               </View>
-            </View>
-          </View>
+          </FormSection>
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         {submitMessage ? (
-          <View style={[styles.submitMessage, submitMessage.type === 'error' ? styles.submitMessageError : styles.submitMessageSuccess]}>
-            <AppText style={[styles.submitMessageText, submitMessage.type === 'error' ? styles.submitMessageErrorText : styles.submitMessageSuccessText]}>
+          <View
+            style={[
+              styles.submitMessage,
+              submitMessage.type === 'error' ? styles.submitMessageError : styles.submitMessageSuccess,
+            ]}
+          >
+            <AppText
+              style={[
+                styles.submitMessageText,
+                submitMessage.type === 'error' ? styles.submitMessageErrorText : styles.submitMessageSuccessText,
+              ]}
+            >
               {submitMessage.text}
             </AppText>
           </View>
         ) : null}
-        {step < totalSteps ? (
-          <Pressable
-            style={styles.continueBtn}
-            onPress={() => {
+        {createdOrderId ? (
+          <IosFormActionFooter
+            embedded
+            stacked={isNarrow}
+            secondaryLabel="New Order"
+            secondaryIcon="PlusSimple"
+            onSecondaryPress={resetForm}
+            primaryLabel="View Order"
+            primaryIcon="ExternalLink"
+            onPrimaryPress={viewCreatedOrder}
+          />
+        ) : step < totalSteps ? (
+          <IosFormActionFooter
+            embedded
+            stacked={isNarrow}
+            secondaryLabel={step > 1 ? 'Back' : 'Cancel'}
+            secondaryIcon={step > 1 ? 'ChevronLeft' : 'X'}
+            onSecondaryPress={() => (step > 1 ? setStep((s) => s - 1) : router.back())}
+            primaryLabel="Continue"
+            primaryIcon="ChevronRight"
+            onPrimaryPress={() => {
               if (validate()) setStep((s) => s + 1);
             }}
-          >
-            <AppText style={styles.continueBtnText}>Continue</AppText>
-            <AppIcon name="ChevronRight" size={19} color="#fff" />
-          </Pressable>
+          />
         ) : (
-          <View style={[styles.footerRow, isNarrow && styles.footerStack]}>
-            <Pressable style={[styles.resetBtn, isNarrow && styles.full]} onPress={confirmReset}>
-              <AppIcon name="RotateCcw" size={17} color={PINK} />
-              <AppText style={styles.resetBtnText}>Reset</AppText>
-            </Pressable>
-            <Pressable
-              style={[styles.submitBtn, saving && styles.disabled, isNarrow && styles.full]}
-              disabled={saving}
-              onPress={handleSubmit}
-            >
-              <AppIcon name="ShieldCheck" size={18} color="#fff" />
-              <AppText style={styles.submitBtnText}>{saving ? 'Submitting...' : 'Submit Order'}</AppText>
-            </Pressable>
-          </View>
+          <IosFormActionFooter
+            embedded
+            stacked={isNarrow}
+            secondaryLabel="Reset"
+            onSecondaryPress={confirmReset}
+            primaryLabel={saving ? 'Submitting...' : 'Submit Order'}
+            onPrimaryPress={handleSubmit}
+            loading={saving}
+            disabled={saving}
+          />
         )}
       </View>
     </SafeAreaView>
@@ -966,51 +1002,34 @@ export function NewOrderScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: salesTheme.background },
-  header: {
-    backgroundColor: PINK,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  safe: { flex: 1 },
+  progressShell: {
+    marginHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    borderRadius: theme.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: theme.spacing.sm,
+    gap: theme.spacing.sm,
+    ...theme.shadows.control,
   },
-  backBtn: {
-    width: 42,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
   },
-  headerCopy: { flex: 1 },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.78)', fontSize: 11, fontWeight: '600', marginTop: 2 },
-  stepLabel: { color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: '700' },
-  progressBar: { height: 4, backgroundColor: '#F7B8DC' },
-  progressFill: { height: 4, backgroundColor: PINK_DARK },
+  progressFill: { height: 4, borderRadius: 2 },
   stepLabels: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 8,
-    backgroundColor: '#FCE4F3',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.xs,
   },
-  stepLabelText: { fontSize: 11, color: '#B5166D', fontWeight: '600' },
-  stepLabelActive: { fontWeight: '800', color: PINK },
-  scroll: { padding: 16, paddingBottom: 120, gap: 16 },
-  card: {
-    width: '92%',
+  scroll: {
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: 120,
+    gap: theme.spacing.md,
     maxWidth: 720,
+    width: '100%',
     alignSelf: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: PINK,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
   },
   fields: { gap: 14 },
   row: { flexDirection: 'column', gap: 10 },
@@ -1271,11 +1290,10 @@ const styles = StyleSheet.create({
   summaryVal: { flex: 1, fontSize: 12, fontWeight: '600', color: INK, textAlign: 'right' },
   summaryTotal: { color: PINK, fontWeight: '800' },
   footer: {
-    padding: 16,
-    paddingBottom: 28,
-    backgroundColor: salesTheme.background,
-    borderTopWidth: 1,
-    borderTopColor: '#F0C0DC',
+    paddingHorizontal: iosDesign.spacing.md,
+    paddingTop: iosDesign.spacing.sm + 2,
+    paddingBottom: iosDesign.spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   submitMessage: {
     width: '92%',
@@ -1306,44 +1324,4 @@ const styles = StyleSheet.create({
   submitMessageSuccessText: {
     color: '#167B51',
   },
-  footerRow: { width: '92%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', gap: 10 },
-  footerStack: { flexDirection: 'column' },
-  continueBtn: {
-    width: '92%',
-    maxWidth: 720,
-    alignSelf: 'center',
-    backgroundColor: PINK,
-    borderRadius: 16,
-    height: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  continueBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  resetBtn: {
-    flex: 1,
-    borderRadius: 16,
-    height: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    borderWidth: 1.5,
-    borderColor: PINK,
-    backgroundColor: '#fff',
-  },
-  resetBtnText: { color: PINK, fontSize: 15, fontWeight: '700' },
-  submitBtn: {
-    flex: 2,
-    backgroundColor: PINK,
-    borderRadius: 16,
-    height: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  disabled: { opacity: 0.6 },
 });

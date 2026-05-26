@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/src/services/firebaseClient';
-import { AppIcon } from '@/src/components/AppIcon';
 import { AppSearchBar } from '@/src/components/AppSearchBar';
 import { AppText } from '@/src/components/AppText';
-import { searchEmptyMessage, useSearchQuery } from '@/src/hooks/useSearchQuery';
+import { SettingsGroup, SettingsSection } from '@/src/components/SettingsGroup';
 import { theme } from '@/src/constants/theme';
-
-const adminTheme = theme.roles.admin;
-const NAVY = adminTheme.primary;
-const BG = adminTheme.background;
+import {
+  AdminScreenShell,
+  AdminStatChip,
+  AdminStatChipRow,
+  AdminStatusPill,
+} from '@/src/features/admin/components/AdminScreenShell';
+import { searchEmptyMessage, useSearchQuery } from '@/src/hooks/useSearchQuery';
+import { usePreferences } from '@/src/hooks/usePreferences';
 
 type VerificationStatus = 'verified' | 'written' | 'failed' | 'writing' | string;
 
@@ -27,27 +28,16 @@ interface NfcCard {
   orderId?: string;
 }
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  verified: { bg: '#EDFAF4', text: '#2BC48A' },
-  written:  { bg: '#EEF2FF', text: '#3b82f6' },
-  failed:   { bg: '#FFE5E5', text: '#E74C3C' },
-  writing:  { bg: '#FFFBEB', text: '#f59e0b' },
-};
-
-function StatusBadge({ status }: { status: VerificationStatus }) {
-  const colors = STATUS_COLORS[status] ?? { bg: '#f3f4f6', text: '#888' };
-  return (
-    <View style={[badge.wrap, { backgroundColor: colors.bg }]}>
-      <AppText style={[badge.text, { color: colors.text }]}>{status.toUpperCase()}</AppText>
-    </View>
-  );
+function statusTone(status: VerificationStatus): 'success' | 'info' | 'danger' | 'warning' | 'neutral' {
+  if (status === 'verified') return 'success';
+  if (status === 'written') return 'info';
+  if (status === 'failed') return 'danger';
+  if (status === 'writing') return 'warning';
+  return 'neutral';
 }
-const badge = StyleSheet.create({
-  wrap: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
-  text: { fontSize: 10, fontWeight: '700' },
-});
 
 export default function NfcLogsScreen() {
+  const { colors } = usePreferences();
   const [cards, setCards] = useState<NfcCard[]>([]);
   const [loading, setLoading] = useState(true);
   const { input: searchInput, setInput: setSearchInput, query: searchQuery, submitSearch, clearSearch } =
@@ -94,95 +84,109 @@ export default function NfcLogsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronLeft" size={22} color="#fff" />
-        </Pressable>
-        <AppText style={styles.headerTitle}>NFC Logs</AppText>
-        <AppText style={styles.headerCount}>{cards.length} chips</AppText>
-      </View>
+    <AdminScreenShell
+      title="NFC Logs"
+      subtitle="Admin"
+      scroll={false}
+      rightAction={
+        <AppText variant="caption" tone="muted" weight="medium">
+          {cards.length} chips
+        </AppText>
+      }
+      headerBottom={
+        <AppSearchBar
+          embedded
+          value={searchInput}
+          onChangeText={setSearchInput}
+          onSearch={submitSearch}
+          onClear={clearSearch}
+          loading={loading}
+          placeholder="Search by card code or chip UID…"
+        />
+      }
+    >
+      <AdminStatChipRow>
+        {(['verified', 'written', 'writing', 'failed'] as const).map((s) => (
+          <AdminStatChip
+            key={s}
+            label={s}
+            value={String(cards.filter((c) => c.verificationStatus === s).length)}
+          />
+        ))}
+      </AdminStatChipRow>
 
-      {/* Stats row */}
-      <View style={styles.statsRow}>
-        {(['verified', 'written', 'writing', 'failed'] as const).map(s => {
-          const count = cards.filter(c => c.verificationStatus === s).length;
-          const colors = STATUS_COLORS[s];
-          return (
-            <View key={s} style={styles.statCard}>
-              <AppText style={[styles.statNum, { color: colors.text }]}>{count}</AppText>
-              <AppText style={styles.statLabel}>{s}</AppText>
-            </View>
-          );
-        })}
-      </View>
-
-      <AppSearchBar
-        value={searchInput}
-        onChangeText={setSearchInput}
-        onSearch={submitSearch}
-        onClear={clearSearch}
-        loading={loading}
-        placeholder="Search by card code or chip UID…"
-      />
-
+      <SettingsSection title="Records" compact />
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <AppText style={styles.empty}>Loading NFC logs…</AppText>
+          <AppText variant="body" tone="muted" style={styles.empty}>
+            Loading NFC logs…
+          </AppText>
         ) : filtered.length === 0 ? (
-          <AppText style={styles.empty}>
+          <AppText variant="body" tone="muted" style={styles.empty}>
             {searchEmptyMessage(false, Boolean(searchQuery), searchQuery, 'No NFC records found.', '')}
           </AppText>
         ) : (
-          filtered.map(card => (
-            <View key={card.id} style={styles.card}>
-              <View style={styles.cardTop}>
-                <View style={styles.cardLeft}>
-                  <AppText style={styles.chipUID}>{card.chipUID || '—'}</AppText>
-                  {card.cardCode ? (
-                    <AppText style={styles.cardCode}>Card: {card.cardCode}</AppText>
-                  ) : null}
-                  {card.orderId ? (
-                    <AppText style={styles.meta}>Order: {card.orderId.slice(0, 8).toUpperCase()}</AppText>
-                  ) : null}
-                  <AppText style={styles.meta} numberOfLines={1}>
-                    {truncate(card.profileUrl)}
-                  </AppText>
+          <SettingsGroup compact>
+            {filtered.map((card, index) => (
+              <View key={card.id}>
+                <View style={styles.card}>
+                  <View style={styles.cardTop}>
+                    <View style={styles.cardLeft}>
+                      <AppText variant="body" weight="semibold">
+                        {card.chipUID || '—'}
+                      </AppText>
+                      {card.cardCode ? (
+                        <AppText variant="caption" tone="muted">
+                          Card: {card.cardCode}
+                        </AppText>
+                      ) : null}
+                      {card.orderId ? (
+                        <AppText variant="caption" tone="muted">
+                          Order: {card.orderId.slice(0, 8).toUpperCase()}
+                        </AppText>
+                      ) : null}
+                      <AppText variant="caption" tone="muted" numberOfLines={1}>
+                        {truncate(card.profileUrl)}
+                      </AppText>
+                    </View>
+                    <AdminStatusPill
+                      label={card.verificationStatus ?? 'unknown'}
+                      tone={statusTone(card.verificationStatus ?? 'unknown')}
+                    />
+                  </View>
+                  <View style={[styles.cardBottom, { borderTopColor: colors.border }]}>
+                    <AppText variant="caption" tone="muted">
+                      By: {card.writtenBy || '—'}
+                    </AppText>
+                    <AppText variant="caption" tone="muted">
+                      {formatDate(card.writtenAt)}
+                    </AppText>
+                  </View>
                 </View>
-                <StatusBadge status={card.verificationStatus ?? 'unknown'} />
+                {index < filtered.length - 1 ? (
+                  <View style={[styles.separator, { backgroundColor: colors.border }]} />
+                ) : null}
               </View>
-              <View style={styles.cardBottom}>
-                <AppText style={styles.metaSmall}>By: {card.writtenBy || '—'}</AppText>
-                <AppText style={styles.metaSmall}>{formatDate(card.writtenAt)}</AppText>
-              </View>
-            </View>
-          ))
+            ))}
+          </SettingsGroup>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </AdminScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
-  header: { backgroundColor: NAVY, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, color: '#fff', fontSize: 18, fontWeight: '700' },
-  headerCount: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
-  statsRow: { flexDirection: 'row', padding: 12, gap: 8 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 10, alignItems: 'center', gap: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
-  statNum: { fontSize: 20, fontWeight: '700' },
-  statLabel: { fontSize: 10, color: '#888', textTransform: 'capitalize' },
-  list: { padding: 12, paddingBottom: 40, gap: 10 },
-  empty: { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 15 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 14, gap: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  list: { paddingBottom: theme.spacing.xxl },
+  empty: { textAlign: 'center', marginTop: theme.spacing.xl, paddingHorizontal: theme.spacing.md },
+  card: { paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm + 2, gap: 8 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
   cardLeft: { flex: 1, gap: 3 },
-  chipUID: { fontSize: 14, fontWeight: '700', color: NAVY },
-  cardCode: { fontSize: 12, color: '#555', fontWeight: '600' },
-  meta: { fontSize: 11, color: '#888' },
-  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 8 },
-  metaSmall: { fontSize: 11, color: '#aaa' },
+  cardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 8,
+  },
+  separator: { height: StyleSheet.hairlineWidth, marginLeft: theme.spacing.md },
 });
 

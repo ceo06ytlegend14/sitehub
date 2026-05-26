@@ -10,6 +10,7 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { ThemeStatusBar } from '@/src/components/ThemeStatusBar';
 import { AuthProvider } from '@/src/providers/AuthProvider';
+import { GuestGateProvider } from '@/src/providers/GuestGateProvider';
 import { PreferencesProvider } from '@/src/providers/PreferencesProvider';
 
 SplashScreen.preventAutoHideAsync();
@@ -32,7 +33,8 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <PreferencesProvider>
+      <GuestGateProvider>
+        <PreferencesProvider>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="auth/login" />
@@ -48,10 +50,14 @@ export default function RootLayout() {
           <Stack.Screen name="theme-picker" options={{ headerShown: false }} />
           <Stack.Screen name="language-picker" options={{ headerShown: false }} />
           <Stack.Screen name="public/[slug]" options={{ headerShown: true, title: 'Public Bio Page' }} />
+          <Stack.Screen name="scan" options={{ headerShown: false }} />
+          <Stack.Screen name="nfc-demo" options={{ headerShown: false }} />
+          <Stack.Screen name="guest-analytics" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
         </Stack>
         <ThemeStatusBar />
-      </PreferencesProvider>
+        </PreferencesProvider>
+      </GuestGateProvider>
     </AuthProvider>
   );
 }

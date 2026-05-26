@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, AppIconName } from '@/src/components/AppIcon';
 import { AppText } from '@/src/components/AppText';
 import { AuthGate } from '@/src/components/AuthGate';
+import { IosFormActionFooter } from '@/src/components/IosFormActionFooter';
 import {
   cardDesignOptions,
   orderCardStatusOptions,
@@ -410,23 +411,44 @@ function DetailContent() {
 
   async function handleSave() {
     if (!order || !form) return;
-    if (!form.customerName.trim()) { Alert.alert('Required', 'Customer name is required.'); return; }
-    if (!form.phone.trim() && !form.telegram.trim()) { Alert.alert('Required', 'Add phone or Telegram.'); return; }
-    const quantity     = Number.parseInt(form.quantity, 10);
+    if (!form.customerName.trim()) {
+      Alert.alert('Required', 'Customer name is required.');
+      return;
+    }
+    if (!form.phone.trim() && !form.telegram.trim()) {
+      Alert.alert('Required', 'Add at least one contact: phone or Telegram.');
+      return;
+    }
+
+    const quantity = Number.parseInt(form.quantity, 10);
     const depositAmount = form.depositAmount.trim() ? Number(form.depositAmount) : 0;
-    setSaving(true); setMessage(null);
+
+    setSaving(true);
+    setMessage(null);
     try {
       await updateOrderDetails(order.id, {
-        customerName: form.customerName, phone: form.phone, telegram: form.telegram,
-        whatsapp: form.whatsapp, email: form.email, company: form.company,
-        jobTitle: form.jobTitle, deliveryAddress: form.deliveryAddress,
-        productType: form.productType, quantity, cardDesign: form.cardDesign,
-        nfcEnabled: form.nfcEnabled, nfcTargetUrl: form.nfcTargetUrl,
-        qrPrinted: form.qrPrinted, paymentStatus: form.paymentStatus,
-        paymentMethod: form.paymentMethod, depositAmount, dueDate: form.dueDate,
-        priority: form.priority, notes: form.notes,
+        customerName: form.customerName,
+        phone: form.phone,
+        telegram: form.telegram,
+        whatsapp: form.whatsapp,
+        email: form.email,
+        company: form.company,
+        jobTitle: form.jobTitle,
+        deliveryAddress: form.deliveryAddress,
+        productType: form.productType,
+        quantity,
+        cardDesign: form.cardDesign,
+        nfcEnabled: form.nfcEnabled,
+        nfcTargetUrl: form.nfcTargetUrl,
+        qrPrinted: form.qrPrinted,
+        paymentStatus: form.paymentStatus,
+        paymentMethod: form.paymentMethod,
+        depositAmount,
+        dueDate: form.dueDate,
+        priority: form.priority,
+        notes: form.notes,
       }, user?.id);
-      setMessage({ type: 'success', text: 'Order saved successfully.' });
+      setMessage({ type: 'success', text: 'Order updated.' });
       await load();
     } catch (err) {
       setMessage({ type: 'error', text: getAuthErrorMessage(err) });
@@ -757,24 +779,14 @@ function DetailContent() {
 
         </ScrollView>
 
-        {/* ── Sticky footer ── */}
-        <View style={styles.footer}>
-          <Pressable style={styles.resetBtn} onPress={load} disabled={saving}>
-            <AppIcon name="RotateCcw" size={18} color={C.pink} />
-            <AppText style={styles.resetBtnText}>Reset</AppText>
-          </Pressable>
-          <Pressable
-            style={[styles.saveBtn, saving && styles.btnDisabled]}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <AppIcon name="ShieldCheck" size={18} color="#fff" />
-            }
-            <AppText style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save changes'}</AppText>
-          </Pressable>
-        </View>
+        <IosFormActionFooter
+          secondaryLabel="Reset"
+          onSecondaryPress={load}
+          primaryLabel={saving ? 'Saving...' : 'Save changes'}
+          onPrimaryPress={handleSave}
+          loading={saving}
+          disabled={saving}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -961,25 +973,4 @@ const styles = StyleSheet.create({
   actionBtnDisabled: { opacity: 0.45 },
   actionBtnText:     { color: '#fff', fontSize: 14, fontWeight: '700' },
 
-  // Footer
-  footer: {
-    flexDirection: 'row', gap: 10,
-    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 28,
-    backgroundColor: C.surface,
-    shadowColor: '#000', shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05, shadowRadius: 12, elevation: 6,
-  },
-  resetBtn: {
-    height: 58, borderRadius: 18, paddingHorizontal: 20,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: C.pinkFaint,
-  },
-  resetBtnText: { color: C.pink, fontSize: 15, fontWeight: '700' },
-  saveBtn: {
-    flex: 1, height: 58, borderRadius: 18,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: C.pink,
-  },
-  saveBtnText:  { color: '#fff', fontSize: 16, fontWeight: '700' },
-  btnDisabled:  { opacity: 0.5 },
 });

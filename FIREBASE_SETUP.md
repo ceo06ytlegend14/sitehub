@@ -16,6 +16,41 @@ Follow these steps in order. Your app code is already wired for Firebase Auth + 
 4. Enable **Email/Password** (first toggle only is enough).
 5. Save.
 
+## Step 2b — Enable Google and Apple sign-in
+
+1. **Authentication → Sign-in method**.
+2. Enable **Google** — set support email, save. Copy the **Web client ID** (ends with `.apps.googleusercontent.com`).
+3. Enable **Apple** — save (requires Apple Developer account for production iOS builds).
+
+### Google OAuth client IDs (Google Cloud Console)
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → select the Firebase-linked project.
+2. **APIs & Services → Credentials**.
+3. Create OAuth clients as needed:
+   - **Web** — used by Expo Go and `expo-auth-session` (this is `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`).
+   - **iOS** — bundle ID `com.biocloud.nativeapp`.
+   - **Android** — package `com.biocloud.nativeapp`; add SHA-1 from your EAS/debug keystore.
+
+Add to `.env`:
+
+```env
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=123456789-xxxx.apps.googleusercontent.com
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=123456789-ios.apps.googleusercontent.com
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=123456789-android.apps.googleusercontent.com
+```
+
+Restart Expo after changing `.env`.
+
+### Apple Sign-In (iOS only)
+
+- Works on **physical iOS devices** and the **iOS Simulator** (Apple ID required).
+- **Not available on Android or web** in this app — use Google or email/password there.
+- In [Apple Developer](https://developer.apple.com/): enable **Sign In with Apple** for App ID `com.biocloud.nativeapp`.
+- In Firebase **Apple** provider: add your Apple **Services ID**, **Team ID**, **Key ID**, and private key (`.p8`) for production token exchange.
+- `app.json` sets `ios.usesAppleSignIn: true` and the `expo-apple-authentication` plugin.
+
+First-time Google/Apple users get a Firestore `users/{uid}` document with `role: customer` (same self-service roles as email signup).
+
 ## Step 3 — Create a Firestore database
 
 1. **Build → Firestore Database → Create database**.
@@ -116,6 +151,9 @@ On the login screen, tap **Forgot password?** and enter your email. Firebase sen
 | `auth/invalid-api-key` | Wrong `EXPO_PUBLIC_FIREBASE_API_KEY` in `.env` |
 | `permission-denied` on Firestore | Deploy `firestore.rules` (Step 6) |
 | Login works but app shows logged out | Firestore `users/{uid}` doc missing — re-register or create the doc manually |
+| Google sign-in fails / no token | Check `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, authorized redirect URI, and that Google is enabled in Firebase |
+| Apple sign-in fails on device | Enable Apple in Firebase + Apple Developer; use a dev/production build (not Expo Go without config) |
+| `auth/account-exists-with-different-credential` | Same email was registered with password — use email sign-in or link accounts in Firebase |
 | Admin menu not visible | Set `role` to `admin` in Firestore (Step 7) |
 
 ## Optional: Cloud Functions

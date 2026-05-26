@@ -17,6 +17,7 @@ export default function PrinterLayout() {
         <Tabs.Screen name="nfc/[jobId]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="qa/[jobId]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+        <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
     </AuthGate>
   );

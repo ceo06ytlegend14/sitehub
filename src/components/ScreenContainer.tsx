@@ -47,7 +47,6 @@ export function ScreenContainer({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   scrollContent: {
     paddingHorizontal: theme.spacing.lg,

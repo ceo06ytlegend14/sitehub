@@ -3,24 +3,27 @@ import {
   Alert, Modal, Pressable, ScrollView,
   StyleSheet, TextInput, View,
 } from 'react-native';
-import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, getDocs, doc, updateDoc, serverTimestamp, orderBy, query } from 'firebase/firestore';
 import { db } from '@/src/services/firebaseClient';
-import { AppIcon } from '@/src/components/AppIcon';
 import { AppSearchBar } from '@/src/components/AppSearchBar';
 import { AppText } from '@/src/components/AppText';
-import { searchEmptyMessage, useSearchQuery } from '@/src/hooks/useSearchQuery';
+import { SettingsGroup, SettingsSection } from '@/src/components/SettingsGroup';
 import { theme } from '@/src/constants/theme';
+import {
+  AdminHeaderAction,
+  AdminScreenShell,
+  AdminStatChip,
+  AdminStatChipRow,
+  AdminStatusPill,
+} from '@/src/features/admin/components/AdminScreenShell';
+import { searchEmptyMessage, useSearchQuery } from '@/src/hooks/useSearchQuery';
+import { usePreferences } from '@/src/hooks/usePreferences';
 import { UserRole } from '@/src/types/models';
 import { useAuth } from '@/src/hooks/useAuth';
 import { createManagedUser, getAuthErrorMessage } from '@/src/services/authService';
 import { normalizeRole } from '@/src/utils/authFlow';
 import { getRoleLabel } from '@/src/utils/roleCapabilities';
-
-// ─── Palette ─────────────────────────────────────────────────────────────────
-const adminTheme = theme.roles.admin;
-const BLUE = adminTheme.accent;
 
 const ROLE_OPTIONS: { label: string; value: UserRole; color: string }[] = [
   { label: 'Sales',    value: 'sales',    color: '#0FBAAF' },
@@ -41,22 +44,15 @@ interface StaffUser {
   createdAt?: string;
 }
 
-// ─── Role badge ───────────────────────────────────────────────────────────────
-function RoleBadge({ role }: { role: UserRole }) {
-  const opt = ROLE_OPTIONS.find(r => r.value === role);
-  return (
-    <View style={[badge.wrap, { backgroundColor: (opt?.color ?? '#999') + '22' }]}>
-      <AppText style={[badge.text, { color: opt?.color ?? '#999' }]}>{getRoleLabel(role).toUpperCase()}</AppText>
-    </View>
-  );
+function rolePillTone(role: UserRole): 'info' | 'success' | 'warning' | 'neutral' {
+  if (role === 'sales') return 'success';
+  if (role === 'printer') return 'info';
+  if (role === 'admin' || role === 'super_admin') return 'warning';
+  return 'neutral';
 }
-const badge = StyleSheet.create({
-  wrap: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
-  text: { fontSize: 10, fontWeight: '700' },
-});
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
 export default function AdminUsersScreen() {
+  const { colors } = usePreferences();
   const { user: currentUser } = useAuth();
   const isSuperAdmin = currentUser?.role === 'super_admin';
   const [users, setUsers] = useState<StaffUser[]>([]);
@@ -184,91 +180,102 @@ export default function AdminUsersScreen() {
     : ROLE_OPTIONS.filter(option => option.value !== 'super_admin');
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <AppIcon name="ChevronLeft" size={22} color="#fff" />
-        </Pressable>
-        <AppText style={styles.headerTitle}>User Management</AppText>
-        <Pressable style={styles.addBtn} onPress={() => setShowModal(true)}>
-          <AppIcon name="User" size={20} color="#fff" />
-          <AppText style={styles.addBtnText}>+ Add</AppText>
-        </Pressable>
-      </View>
+    <AdminScreenShell
+      title="Users"
+      subtitle="Admin"
+      rightAction={<AdminHeaderAction label="Add" icon="User" onPress={() => setShowModal(true)} />}
+      headerBottom={
+        <AppSearchBar
+          embedded
+          value={searchInput}
+          onChangeText={setSearchInput}
+          onSearch={submitSearch}
+          onClear={clearSearch}
+          loading={loading}
+          placeholder="Search by name, email, role…"
+        />
+      }
+      scroll={false}
+    >
+      <AdminStatChipRow>
+        <AdminStatChip label="Total" value={String(counts.total)} />
+        <AdminStatChip label="Sales" value={String(counts.sales)} tone="#34C759" />
+        <AdminStatChip label="Printer" value={String(counts.printer)} tone="#32ADE6" />
+        <AdminStatChip label="Admin" value={String(counts.admin + counts.superAdmin)} tone={colors.primary} />
+      </AdminStatChipRow>
 
-      {/* Stats */}
-      <View style={styles.statsRow}>
-        {[
-          { label: 'Total', value: counts.total, color: BLUE },
-          { label: 'Sales', value: counts.sales, color: '#0FBAAF' },
-          { label: 'Printer', value: counts.printer, color: '#00BCD4' },
-          { label: 'Admin', value: counts.admin, color: '#7c3aed' },
-          { label: 'Super', value: counts.superAdmin, color: '#111827' },
-        ].map(s => (
-          <View key={s.label} style={styles.statCard}>
-            <AppText style={[styles.statNum, { color: s.color }]}>{s.value}</AppText>
-            <AppText style={styles.statLabel}>{s.label}</AppText>
-          </View>
-        ))}
-      </View>
-
-      <AppSearchBar
-        value={searchInput}
-        onChangeText={setSearchInput}
-        onSearch={submitSearch}
-        onClear={clearSearch}
-        loading={loading}
-        placeholder="Search by name, email, role…"
-      />
-
-      {/* User list */}
+      <SettingsSection title="Staff" compact />
       <ScrollView style={styles.listScroll} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <AppText style={styles.emptyText}>Loading users…</AppText>
+          <AppText variant="body" tone="muted" style={styles.emptyText}>
+            Loading users…
+          </AppText>
         ) : filtered.length === 0 ? (
-          <AppText style={styles.emptyText}>
+          <AppText variant="body" tone="muted" style={styles.emptyText}>
             {searchEmptyMessage(false, Boolean(searchQuery), searchQuery, 'No users found.', '')}
           </AppText>
         ) : (
-          filtered.map(u => (
-            <View key={u.id} style={[styles.userCard, !u.isActive && styles.userCardInactive]}>
-              <View style={styles.userLeft}>
-                <View style={[styles.userAvatar, { backgroundColor: ROLE_OPTIONS.find(r => r.value === u.role)?.color ?? '#999' }]}>
-                  <AppText style={styles.userAvatarText}>{(u.displayName || u.email)[0].toUpperCase()}</AppText>
-                </View>
-                <View style={styles.userInfo}>
-                  <AppText style={styles.userName}>{u.displayName || '—'}</AppText>
-                  <AppText style={styles.userEmail}>{u.email}</AppText>
-                  {u.phone ? <AppText style={styles.userMeta}>{u.phone}</AppText> : null}
-                  {u.branch ? <AppText style={styles.userMeta}>{u.branch}</AppText> : null}
-                  <AppText style={styles.userDate}>{u.createdAt}</AppText>
-                </View>
-              </View>
-              <View style={styles.userRight}>
-                <RoleBadge role={u.role} />
+          <SettingsGroup compact>
+            {filtered.map((u, index) => {
+              const roleColor = ROLE_OPTIONS.find((r) => r.value === u.role)?.color ?? colors.textMuted;
+              return (
                 <Pressable
-                  style={[styles.statusBtn, { backgroundColor: u.isActive ? '#EDFAF4' : '#FFE5E5' }]}
+                  key={u.id}
                   onPress={() => handleToggleActive(u)}
+                  style={({ pressed }) => [
+                    styles.userRow,
+                    !u.isActive && styles.userRowInactive,
+                    pressed && { backgroundColor: colors.surfaceSoft },
+                  ]}
                 >
-                  <AppText style={[styles.statusBtnText, { color: u.isActive ? '#2BC48A' : '#E74C3C' }]}>
-                    {u.isActive ? 'Active' : 'Inactive'}
-                  </AppText>
+                  <View style={[styles.userAvatar, { backgroundColor: `${roleColor}22` }]}>
+                    <AppText variant="body" weight="bold" style={{ color: roleColor }}>
+                      {(u.displayName || u.email)[0].toUpperCase()}
+                    </AppText>
+                  </View>
+                  <View style={styles.userInfo}>
+                    <AppText variant="body" weight="semibold" numberOfLines={1}>
+                      {u.displayName || '—'}
+                    </AppText>
+                    <AppText variant="caption" tone="muted" numberOfLines={1}>
+                      {u.email}
+                    </AppText>
+                    {u.branch ? (
+                      <AppText variant="caption" tone="muted" numberOfLines={1}>
+                        {u.branch}
+                      </AppText>
+                    ) : null}
+                  </View>
+                  <View style={styles.userRight}>
+                    <AdminStatusPill label={getRoleLabel(u.role)} tone={rolePillTone(u.role)} />
+                    <AdminStatusPill
+                      label={u.isActive ? 'Active' : 'Inactive'}
+                      tone={u.isActive ? 'success' : 'danger'}
+                    />
+                  </View>
+                  {index < filtered.length - 1 ? (
+                    <View style={[styles.separator, { backgroundColor: colors.border }]} />
+                  ) : null}
                 </Pressable>
-              </View>
-            </View>
-          ))
+              );
+            })}
+          </SettingsGroup>
         )}
       </ScrollView>
 
       {/* Create Account Modal */}
       <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={styles.modalSafe}>
-          <View style={styles.modalHeader}>
-            <AppText style={styles.modalTitle}>Create Account</AppText>
-            <Pressable onPress={() => setShowModal(false)}>
-              <AppText style={styles.modalCancel}>Cancel</AppText>
+        <SafeAreaView style={[styles.modalSafe, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Pressable onPress={() => setShowModal(false)} hitSlop={8}>
+              <AppText variant="body" weight="semibold" style={{ color: colors.primary }}>
+                Cancel
+              </AppText>
             </Pressable>
+            <AppText variant="body" weight="bold" style={styles.modalTitle}>
+              Create Account
+            </AppText>
+            <View style={styles.modalHeaderSpacer} />
           </View>
 
           <ScrollView contentContainerStyle={styles.modalBody}>
@@ -319,77 +326,97 @@ export default function AdminUsersScreen() {
             </View>
 
             <Pressable
-              style={[styles.createBtn, saving && { opacity: 0.6 }]}
+              style={[styles.createBtn, { backgroundColor: colors.primary }, saving && { opacity: 0.6 }]}
               disabled={saving}
               onPress={handleCreate}
             >
-              <AppText style={styles.createBtnText}>{saving ? 'Creating…' : 'Create Account'}</AppText>
+              <AppText variant="body" weight="bold" style={styles.createBtnText}>
+                {saving ? 'Creating…' : 'Create Account'}
+              </AppText>
             </Pressable>
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </AdminScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: adminTheme.background },
-  header: { backgroundColor: BLUE, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, minWidth: 0, color: '#fff', fontSize: 18, fontWeight: '700' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
-  addBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 },
-  statCard: {
-    flexGrow: 1,
-    flexBasis: '18%',
-    minWidth: 56,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 10,
-    alignItems: 'center',
-    gap: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
   listScroll: { flex: 1 },
-  statNum: { fontSize: 22, fontWeight: '700' },
-  statLabel: { fontSize: 11, color: '#888' },
-  list: { padding: 12, paddingBottom: 100, gap: 10 },
-  emptyText: { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 15 },
-  userCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  userCardInactive: { opacity: 0.5 },
-  userLeft: { flexDirection: 'row', gap: 12, flex: 1, minWidth: 0 },
-  userAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  userAvatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  list: { paddingBottom: theme.spacing.xxl },
+  emptyText: { textAlign: 'center', marginTop: theme.spacing.xl, paddingHorizontal: theme.spacing.md },
+  userRow: {
+    position: 'relative',
+    minHeight: 64,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  userRowInactive: { opacity: 0.55 },
+  separator: {
+    position: 'absolute',
+    left: theme.spacing.md,
+    right: 0,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+  },
+  userAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   userInfo: { flex: 1, minWidth: 0, gap: 2 },
-  userName: { fontSize: 15, fontWeight: '700', color: '#1A1A2E' },
-  userEmail: { fontSize: 12, color: '#888', flexShrink: 1 },
-  userMeta: { fontSize: 11, color: '#aaa' },
-  userDate: { fontSize: 10, color: '#ccc', marginTop: 2 },
-  userRight: { alignItems: 'flex-end', gap: 6 },
-  statusBtn: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  statusBtnText: { fontSize: 11, fontWeight: '700' },
-  // Modal
-  modalSafe: { flex: 1, backgroundColor: '#fff' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
-  modalCancel: { fontSize: 16, color: BLUE, fontWeight: '600' },
-  modalBody: { padding: 16, gap: 6, paddingBottom: 60 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginTop: 10 },
-  input: { backgroundColor: '#F8F9FF', borderRadius: 12, borderWidth: 1, borderColor: '#E0E4FF', paddingHorizontal: 14, height: 48, fontSize: 15, color: '#1A1A2E', marginTop: 4 },
-  roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 6 },
-  roleOption: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, borderWidth: 2, borderColor: '#E0E4FF', backgroundColor: '#F8F9FF' },
-  roleOptionText: { fontSize: 14, fontWeight: '600', color: '#555' },
-  previewCard: { backgroundColor: '#F8F9FF', borderRadius: 14, padding: 14, marginTop: 16, gap: 4, borderWidth: 1, borderColor: '#E0E4FF' },
-  previewTitle: { fontSize: 13, fontWeight: '700', color: '#1A1A2E', marginBottom: 4 },
-  previewRow: { fontSize: 13, color: '#888' },
-  previewVal: { fontWeight: '700', color: '#1A1A2E' },
-  previewNote: { fontSize: 11, color: '#aaa', marginTop: 6, lineHeight: 16 },
-  createBtn: { backgroundColor: BLUE, borderRadius: 16, height: 54, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
-  createBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  userRight: { alignItems: 'flex-end', gap: 4 },
+  modalSafe: { flex: 1 },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: { flex: 1, textAlign: 'center' },
+  modalHeaderSpacer: { width: 56 },
+  modalBody: { padding: theme.spacing.md, gap: 6, paddingBottom: 60 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#636366', marginTop: 10 },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.08)',
+    paddingHorizontal: 14,
+    height: 44,
+    fontSize: 16,
+    color: '#111111',
+    marginTop: 4,
+  },
+  roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  roleOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: theme.radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: '#F2F2F7',
+  },
+  roleOptionText: { fontSize: 14, fontWeight: '600', color: '#636366' },
+  previewCard: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: theme.radius.sm,
+    padding: theme.spacing.md,
+    marginTop: theme.spacing.md,
+    gap: 4,
+  },
+  previewTitle: { fontSize: 13, fontWeight: '700', color: '#111111', marginBottom: 4 },
+  previewRow: { fontSize: 13, color: '#6E6E73' },
+  previewVal: { fontWeight: '700', color: '#111111' },
+  previewNote: { fontSize: 12, color: '#8E8E93', marginTop: 6, lineHeight: 17 },
+  createBtn: { borderRadius: theme.radius.sm, height: 50, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  createBtnText: { color: '#FFFFFF' },
 });
 

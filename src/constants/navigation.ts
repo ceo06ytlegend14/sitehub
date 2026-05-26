@@ -1,6 +1,10 @@
 export const appRoutes = {
   login: '/auth/login',
+  register: '/auth/register',
   customerTabs: '/(tabs)',
+  scan: '/scan',
+  nfcDemo: '/nfc-demo',
+  guestAnalytics: '/guest-analytics',
   newOrder: '/new-order',
   orderDetail: '/order-detail/[orderId]',
   sales: {
@@ -8,6 +12,7 @@ export const appRoutes = {
     orders: '/sales/orders',
     newOrder: '/sales/new-order',
     payouts: '/sales/payouts',
+    notifications: '/sales/notifications',
     settings: '/sales/settings',
   },
   printer: {
@@ -15,5 +20,6 @@ export const appRoutes = {
     newOrder: '/printer/new-order',
     settings: '/printer/settings',
     wages: '/printer/wages',
+    notifications: '/printer/notifications',
   },
 } as const;
