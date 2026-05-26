@@ -1,3 +1,5 @@
+import type { BioPage } from '@/src/types/models';
+
 export const GUEST_SAMPLE_PROFILE_SLUG = 'demo';
 
 export const GUEST_DEMO_QR_CODES = [
@@ -51,3 +53,40 @@ export const GUEST_DEMO_ANALYTICS = {
   ],
   weeklyViews: [42, 58, 71, 63, 88, 95, 102],
 } as const;
+
+export const GUEST_PUBLIC_BIO_PAGES: Record<string, BioPage> = {
+  demo: {
+    id: 'guest-demo-profile',
+    userId: 'guest-demo',
+    slug: 'demo',
+    displayName: 'Sok Dara',
+    tagline: 'Founder at SITEHUB NFC identity preview',
+    whatsapp: '+85512345678',
+    instagram: '@sokdara.design',
+    telegram: '@sokdara',
+    email: 'sok.dara@example.com',
+    customLinks: [
+      { label: 'Portfolio', url: 'https://biocloud.app/c/demo' },
+      { label: 'Book a demo', url: 'https://biocloud.app' },
+    ],
+    theme: 'vibrant_pink',
+    updatedAt: '2026-05-26T00:00:00.000Z',
+  },
+  'sitehub-creator': {
+    id: 'guest-demo-creator',
+    userId: 'guest-demo-creator',
+    slug: 'sitehub-creator',
+    displayName: 'Mina Chen',
+    tagline: 'Creator tools and QR launch preview',
+    whatsapp: '+85598765432',
+    instagram: '@sitehub.creator',
+    telegram: '@sitehubcreator',
+    email: 'creator@example.com',
+    customLinks: [
+      { label: 'Media kit', url: 'https://biocloud.app/c/sitehub-creator' },
+      { label: 'Launch page', url: 'https://biocloud.app' },
+    ],
+    theme: 'ocean_wave',
+    updatedAt: '2026-05-26T00:00:00.000Z',
+  },
+};

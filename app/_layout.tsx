@@ -33,31 +33,31 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <GuestGateProvider>
-        <PreferencesProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="auth/login" />
-          <Stack.Screen name="auth/register" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="sales" />
-          <Stack.Screen name="printer" />
-          <Stack.Screen name="admin" />
-          <Stack.Screen name="new-order" />
-          <Stack.Screen name="order-detail/[orderId]" />
-          <Stack.Screen name="activate-card" options={{ headerShown: true, title: 'Activate Card' }} />
-          <Stack.Screen name="edit-bio" options={{ headerShown: true, title: 'Edit Bio Page' }} />
-          <Stack.Screen name="theme-picker" options={{ headerShown: false }} />
-          <Stack.Screen name="language-picker" options={{ headerShown: false }} />
-          <Stack.Screen name="public/[slug]" options={{ headerShown: true, title: 'Public Bio Page' }} />
-          <Stack.Screen name="scan" options={{ headerShown: false }} />
-          <Stack.Screen name="nfc-demo" options={{ headerShown: false }} />
-          <Stack.Screen name="guest-analytics" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <ThemeStatusBar />
-        </PreferencesProvider>
-      </GuestGateProvider>
+      <PreferencesProvider>
+        <GuestGateProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="auth/login" />
+            <Stack.Screen name="auth/register" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="sales" />
+            <Stack.Screen name="printer" />
+            <Stack.Screen name="admin" />
+            <Stack.Screen name="new-order" />
+            <Stack.Screen name="order-detail/[orderId]" />
+            <Stack.Screen name="activate-card" options={{ headerShown: true, title: 'Activate Card' }} />
+            <Stack.Screen name="edit-bio" options={{ headerShown: true, title: 'Edit Bio Page' }} />
+            <Stack.Screen name="theme-picker" options={{ headerShown: false }} />
+            <Stack.Screen name="language-picker" options={{ headerShown: false }} />
+            <Stack.Screen name="public/[slug]" options={{ headerShown: true, title: 'Public Bio Page' }} />
+            <Stack.Screen name="scan" options={{ headerShown: false }} />
+            <Stack.Screen name="nfc-demo" options={{ headerShown: false }} />
+            <Stack.Screen name="guest-analytics" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <ThemeStatusBar />
+        </GuestGateProvider>
+      </PreferencesProvider>
     </AuthProvider>
   );
 }
